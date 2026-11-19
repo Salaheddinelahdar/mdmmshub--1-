@@ -1,0 +1,256 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (request.auth.token.email == 'salaheddinelahdar@gmail.com' && request.auth.token.email_verified == true)
+      );
+    }
+
+    function isUcaEmail() {
+      return isSignedIn()
+        && request.auth.token.email is string
+        && request.auth.token.email.lower().matches('^[^@\\s]+@uca\\.ac\\.ma$');
+    }
+
+    function isValidStudent(data) {
+      return data.keys().hasAll(['id', 'name', 'photoUrl', 'role', 'approved', 'createdAt'])
+        && data.keys().hasOnly(['id', 'name', 'photoUrl', 'role', 'approved', 'createdAt'])
+        && data.id is string && isValidId(data.id)
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 80
+        && data.photoUrl is string && data.photoUrl.size() <= 120000
+        && data.role == 'student'
+        && data.approved is bool
+        && data.createdAt is timestamp;
+    }
+
+    function isValidUserPrivate(data) {
+      return data.keys().hasAll(['uid', 'email', 'role', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'email', 'role', 'createdAt'])
+        && data.uid is string && isValidId(data.uid)
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 160
+        && data.role in ['student', 'admin']
+        && data.createdAt is timestamp;
+    }
+
+    function isValidPointLog(data) {
+      return data.keys().hasAll(['id', 'studentId', 'seasonId', 'action', 'points', 'note', 'createdAt'])
+        && data.keys().hasOnly(['id', 'studentId', 'seasonId', 'action', 'points', 'note', 'createdAt'])
+        && data.id is string && isValidId(data.id)
+        && data.studentId is string && isValidId(data.studentId)
+        && data.seasonId is string && data.seasonId.size() >= 1 && data.seasonId.size() <= 64 && data.seasonId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.action is string && data.action.size() >= 1 && data.action.size() <= 120
+        && data.points is number && data.points >= -500 && data.points <= 2000
+        && data.note is string && data.note.size() <= 300
+        && data.createdAt is timestamp;
+    }
+
+    function isValidSeason(data) {
+      return data.keys().hasAll(['id', 'name', 'startDate', 'endDate', 'active', 'createdAt'])
+        && data.keys().hasOnly(['id', 'name', 'startDate', 'endDate', 'active', 'createdAt'])
+        && data.id is string && data.id.size() >= 1 && data.id.size() <= 64 && data.id.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 80
+        && data.startDate is string && data.startDate.size() <= 32
+        && data.endDate is string && data.endDate.size() <= 32
+        && data.active is bool
+        && data.createdAt is timestamp;
+    }
+
+    function isValidExam(data) {
+      return data.keys().hasAll(['id', 'name', 'seasonId', 'createdAt'])
+        && data.keys().hasOnly(['id', 'name', 'seasonId', 'createdAt'])
+        && data.id is string && isValidId(data.id)
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 100
+        && data.seasonId is string && data.seasonId.size() >= 1 && data.seasonId.size() <= 64 && data.seasonId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.createdAt is timestamp;
+    }
+
+    function isValidExamScore(data) {
+      return data.keys().hasAll(['id', 'studentId', 'examId', 'seasonId', 'score', 'pointsAwarded', 'createdAt'])
+        && data.keys().hasOnly(['id', 'studentId', 'examId', 'seasonId', 'score', 'pointsAwarded', 'createdAt'])
+        && data.id is string && isValidId(data.id)
+        && data.studentId is string && isValidId(data.studentId)
+        && data.examId is string && isValidId(data.examId)
+        && data.seasonId is string && data.seasonId.size() >= 1 && data.seasonId.size() <= 64 && data.seasonId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.score is number && data.score >= 0 && data.score <= 100
+        && data.pointsAwarded is number && data.pointsAwarded >= 0 && data.pointsAwarded <= 1000
+        && data.createdAt is timestamp;
+    }
+
+    function isValidHallOfFame(data) {
+      return data.keys().hasAll(['id', 'seasonId', 'seasonName', 'studentId', 'studentName', 'photoUrl', 'rank', 'totalPoints', 'createdAt'])
+        && data.keys().hasOnly(['id', 'seasonId', 'seasonName', 'studentId', 'studentName', 'photoUrl', 'rank', 'totalPoints', 'createdAt'])
+        && data.id is string && isValidId(data.id)
+        && data.seasonId is string && data.seasonId.size() >= 1 && data.seasonId.size() <= 64 && data.seasonId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.seasonName is string && data.seasonName.size() >= 2 && data.seasonName.size() <= 80
+        && data.studentId is string && isValidId(data.studentId)
+        && data.studentName is string && data.studentName.size() >= 2 && data.studentName.size() <= 80
+        && data.photoUrl is string && data.photoUrl.size() <= 120000
+        && data.rank is number && data.rank >= 1 && data.rank <= 3
+        && data.totalPoints is number
+        && data.createdAt is timestamp;
+    }
+
+    // Connection test document
+    match /test/connection {
+      allow get: if true;
+    }
+
+    // Admin allowlist (read own entry only)
+    match /admins/{uid} {
+      allow get: if isValidId(uid) && isOwner(uid);
+      allow list, write: if false;
+    }
+
+    // Public Student Leaderboard Profiles (no PII)
+    match /students/{studentId} {
+      allow get: if isValidId(studentId) && (existing().approved == true || isOwner(studentId) || isAdmin());
+      allow list: if resource.data.approved == true || isAdmin();
+      allow create: if isValidId(studentId)
+        && isSignedIn()
+        && isValidStudent(incoming())
+        && incoming().id == studentId
+        && incoming().createdAt == request.time
+        && (
+          isAdmin() ||
+          (isOwner(studentId) && isUcaEmail() && incoming().approved == false && incoming().role == 'student')
+        );
+      allow update: if isValidId(studentId)
+        && isSignedIn()
+        && isValidStudent(incoming())
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && (
+          (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['approved', 'name', 'photoUrl'])) ||
+          (isOwner(studentId) && incoming().approved == existing().approved && incoming().role == existing().role && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'photoUrl']))
+        );
+      allow delete: if isValidId(studentId) && isAdmin();
+    }
+
+    // Private PII collection
+    match /users_private/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserPrivate(incoming())
+        && incoming().uid == request.auth.uid
+        && incoming().role == 'student'
+        && incoming().createdAt == request.time
+        && (
+          isAdmin() ||
+          (isUcaEmail() && incoming().email.lower().matches('^[^@\\s]+@uca\\.ac\\.ma$'))
+        );
+      allow update: if isValidId(userId)
+        && isValidUserPrivate(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && isOwner(userId)
+        && incoming().role == existing().role
+        && incoming().diff(existing()).affectedKeys().hasOnly(['email']);
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // Transparent public point logs
+    match /point_logs/{logId} {
+      allow get: if isValidId(logId);
+      allow list: if true;
+      allow create: if isValidId(logId)
+        && isAdmin()
+        && isValidPointLog(incoming())
+        && incoming().id == logId
+        && incoming().createdAt == request.time
+        && exists(/databases/$(database)/documents/students/$(incoming().studentId))
+        && exists(/databases/$(database)/documents/seasons/$(incoming().seasonId));
+      allow update: if false;
+      allow delete: if isValidId(logId) && isAdmin();
+    }
+
+    // Academic Seasons
+    match /seasons/{seasonId} {
+      allow get: if isValidId(seasonId);
+      allow list: if true;
+      allow create: if isValidId(seasonId)
+        && isAdmin()
+        && isValidSeason(incoming())
+        && incoming().id == seasonId
+        && incoming().createdAt == request.time;
+      allow update: if isValidId(seasonId)
+        && isAdmin()
+        && isValidSeason(incoming())
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['active', 'name', 'endDate']);
+      allow delete: if isValidId(seasonId) && isAdmin();
+    }
+
+    // Exams
+    match /exams/{examId} {
+      allow get: if isValidId(examId);
+      allow list: if true;
+      allow create: if isValidId(examId)
+        && isAdmin()
+        && isValidExam(incoming())
+        && incoming().id == examId
+        && incoming().createdAt == request.time
+        && exists(/databases/$(database)/documents/seasons/$(incoming().seasonId));
+      allow update: if false;
+      allow delete: if isValidId(examId) && isAdmin();
+    }
+
+    // Exam Scores
+    match /exam_scores/{scoreId} {
+      allow get: if isValidId(scoreId);
+      allow list: if true;
+      allow create: if isValidId(scoreId)
+        && isAdmin()
+        && isValidExamScore(incoming())
+        && incoming().id == scoreId
+        && incoming().createdAt == request.time
+        && exists(/databases/$(database)/documents/students/$(incoming().studentId))
+        && exists(/databases/$(database)/documents/exams/$(incoming().examId));
+      allow update: if false;
+      allow delete: if isValidId(scoreId) && isAdmin();
+    }
+
+    // Hall of Fame
+    match /hall_of_fame/{entryId} {
+      allow get: if isValidId(entryId);
+      allow list: if true;
+      allow create: if isValidId(entryId)
+        && isAdmin()
+        && isValidHallOfFame(incoming())
+        && incoming().id == entryId
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isValidId(entryId) && isAdmin();
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "MDMMShub",
+  "description": "Gamified student leaderboard and points tracker for a Marketing Digital university class.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
