@@ -20,17 +20,20 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-40 border-b border-white/[0.08] bg-[#0A0F1E]/90 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-8 px-4 sm:px-6">
-        {/* Zone 1: Brand Logo & Wordmark */}
+        {/* Zone 1: Brand Wordmark */}
         <a
           href="/"
           onClick={(e) => {
             e.preventDefault();
             handleNav('/');
           }}
-          className="inline-flex items-center gap-2.5 font-display text-lg font-bold tracking-tight text-white whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-md px-1"
+          aria-label="MDMMSspace"
+          className="inline-flex items-baseline font-display text-xl leading-none tracking-tight whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-md px-1 select-none"
         >
-          <img src="/logo.svg" alt="" aria-hidden="true" className="h-7 w-7 shrink-0" />
-          <span>MDMMS space</span>
+          <span className="font-bold text-white">MDMMS</span>
+          <span className="font-normal bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA] bg-clip-text text-transparent">
+            space
+          </span>
         </a>
 
         {/* Zone 2: Concise single-line nav links (desktop) */}
@@ -69,7 +72,7 @@ export function Navbar() {
               isDashboard ? 'text-white underline decoration-indigo-500 decoration-2 underline-offset-8' : 'text-slate-400'
             }`}
           >
-            Dashboard
+            Profile
           </a>
           <a
             href="/admin"
@@ -176,7 +179,7 @@ export function Navbar() {
                   isDashboard ? 'bg-indigo-500/15 text-white' : 'text-slate-300 hover:bg-white/[0.05]'
                 }`}
               >
-                Dashboard
+                Profile
               </a>
               <a
                 href="/admin"
