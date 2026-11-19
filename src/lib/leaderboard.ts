@@ -265,3 +265,196 @@ export function getStudentLevel(points: number): StudentLevel {
   if (safePoints >= 50) return STUDENT_LEVELS[1];
   return STUDENT_LEVELS[0];
 }
+
+export function categorizePointActions(
+  actions: PointActionDefinition[] = POINT_ACTIONS
+): {
+  earning: PointActionDefinition[];
+  penalties: PointActionDefinition[];
+  manual: PointActionDefinition[];
+} {
+  return {
+    earning: actions.filter((a) => a.points > 0 || a.frequency === 'per_exam'),
+    penalties: actions.filter((a) => a.points < 0),
+    manual: actions.filter((a) => a.frequency === 'manual'),
+  };
+}
+
+export function formatActionFrequency(frequency: PointActionDefinition['frequency']): string {
+  switch (frequency) {
+    case 'repeatable':
+      return 'Repeatable';
+    case 'once_per_student':
+      return 'Once per student';
+    case 'once_per_club':
+      return 'Once per club';
+    case 'per_exam':
+      return 'Per exam';
+    case 'manual':
+      return 'Instructor discretion';
+  }
+}
+
+export function formatLevelRange(level: StudentLevel): string {
+  if (level.nextLevelPoints === null) {
+    return `${level.minPoints}+ pts`;
+  }
+  return `${level.minPoints} – ${level.nextLevelPoints - 1} pts`;
+}
+
+export const MOROCCO_TIMEZONE = 'Africa/Casablanca';
+
+const WEEKDAY_INDEX_MAP: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
+const casablancaFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: MOROCCO_TIMEZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  weekday: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+});
+
+export interface CasablancaDateParts {
+  year: number;
+  month: number;
+  day: number;
+  weekdayIndex: number; // 0 = Sun, 1 = Mon, ...
+  hour: number;
+  minute: number;
+  second: number;
+}
+
+export function getCasablancaDateParts(epochMs: number): CasablancaDateParts {
+  const parts = casablancaFormatter.formatToParts(new Date(epochMs));
+  const map: Record<string, string> = {};
+  for (const part of parts) {
+    if (part.type !== 'literal') {
+      map[part.type] = part.value;
+    }
+  }
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    weekdayIndex: WEEKDAY_INDEX_MAP[map.weekday] ?? 0,
+    hour: Number(map.hour) % 24,
+    minute: Number(map.minute),
+    second: Number(map.second),
+  };
+}
+
+export function casablancaWallTimeToUtcMs(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  second: number = 0
+): number {
+  const desiredAsUtc = Date.UTC(year, month - 1, day, hour, minute, second, 0);
+  let guess = desiredAsUtc;
+  for (let i = 0; i < 2; i++) {
+    const actual = getCasablancaDateParts(guess);
+    const actualAsUtc = Date.UTC(
+      actual.year,
+      actual.month - 1,
+      actual.day,
+      actual.hour,
+      actual.minute,
+      actual.second,
+      0
+    );
+    const diff = desiredAsUtc - actualAsUtc;
+    if (diff === 0) break;
+    guess += diff;
+  }
+  return guess;
+}
+
+export function getNextMondayCasablancaMs(fromMs: number): number {
+  const parts = getCasablancaDateParts(fromMs);
+  const daysSinceMonday = (parts.weekdayIndex + 6) % 7; // Mon=0, Tue=1, ..., Sun=6
+  const daysToAdd = daysSinceMonday === 0 ? 0 : 7 - daysSinceMonday;
+
+  const targetCal = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + daysToAdd));
+  let candidateMs = casablancaWallTimeToUtcMs(
+    targetCal.getUTCFullYear(),
+    targetCal.getUTCMonth() + 1,
+    targetCal.getUTCDate(),
+    0,
+    1,
+    0
+  );
+
+  if (candidateMs <= fromMs) {
+    const nextWeekCal = new Date(
+      Date.UTC(parts.year, parts.month - 1, parts.day + daysToAdd + 7)
+    );
+    candidateMs = casablancaWallTimeToUtcMs(
+      nextWeekCal.getUTCFullYear(),
+      nextWeekCal.getUTCMonth() + 1,
+      nextWeekCal.getUTCDate(),
+      0,
+      1,
+      0
+    );
+  }
+
+  return candidateMs;
+}
+
+export function getWeeklyWinnersRevealState(
+  students: StudentProfile[],
+  nowMs: number = Date.now()
+): {
+  hasRevealed: boolean;
+  targetMs: number;
+  firstApprovedAt: number | null;
+} {
+  const approved = students.filter((s) => s.approved);
+  if (approved.length === 0) {
+    return {
+      hasRevealed: false,
+      targetMs: getNextMondayCasablancaMs(nowMs),
+      firstApprovedAt: null,
+    };
+  }
+
+  const firstApprovedAt = Math.min(...approved.map((s) => s.createdAt));
+  const firstRevealMondayMs = getNextMondayCasablancaMs(firstApprovedAt);
+
+  return {
+    hasRevealed: nowMs >= firstRevealMondayMs,
+    targetMs: firstRevealMondayMs,
+    firstApprovedAt,
+  };
+}
+
+export interface CountdownParts {
+  days: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+  totalSeconds: number;
+}
+
+export function getCountdownParts(remainingMs: number): CountdownParts {
+  const totalSeconds = Math.max(0, Math.floor(remainingMs / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return { days, hours, minutes, seconds, totalSeconds };
+}

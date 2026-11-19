@@ -4,11 +4,21 @@ import {
   buildHallOfFameTop3,
   calculateExamPoints,
   canClaimAction,
+  casablancaWallTimeToUtcMs,
+  categorizePointActions,
   computeLeaderboard,
   computeNextRankGap,
   filterRankedStudents,
   findWeeklyMvp,
+  formatActionFrequency,
+  formatLevelRange,
+  getCasablancaDateParts,
+  getCountdownParts,
+  getNextMondayCasablancaMs,
   getStudentLevel,
+  getWeeklyWinnersRevealState,
+  POINT_ACTIONS,
+  STUDENT_LEVELS,
 } from './leaderboard';
 import type { PointLog, Season, StudentProfile } from '../types';
 
@@ -150,4 +160,86 @@ test('getStudentLevel computes level automatically from totalPoints across all t
     { level: getStudentLevel(920).level, name: getStudentLevel(920).name },
     { level: 5, name: 'Elite' }
   );
+});
+
+test('categorizePointActions partitions all POINT_ACTIONS without omitting entries', () => {
+  const grouped = categorizePointActions(POINT_ACTIONS);
+  const totalCategorized =
+    grouped.earning.length + grouped.penalties.length + grouped.manual.length;
+  assert.equal(totalCategorized, POINT_ACTIONS.length);
+  assert.ok(grouped.earning.some((a) => a.id === 'present_class' && a.points === 15));
+  assert.ok(grouped.earning.some((a) => a.id === 'exam_score' && a.frequency === 'per_exam'));
+  assert.ok(grouped.penalties.every((a) => a.points < 0));
+  assert.equal(grouped.penalties.length, 2);
+  assert.equal(grouped.manual.length, 1);
+  assert.equal(grouped.manual[0].id, 'manual_adjustment');
+});
+
+test('formatActionFrequency and formatLevelRange return clean readable labels', () => {
+  assert.equal(formatActionFrequency('once_per_club'), 'Once per club');
+  assert.equal(formatActionFrequency('per_exam'), 'Per exam');
+  assert.equal(formatLevelRange(STUDENT_LEVELS[0]), '0 – 49 pts');
+  assert.equal(formatLevelRange(STUDENT_LEVELS[3]), '300 – 499 pts');
+  assert.equal(formatLevelRange(STUDENT_LEVELS[4]), '500+ pts');
+});
+
+test('getNextMondayCasablancaMs targets next Monday 00:01 Africa/Casablanca across weekdays and Monday boundary', () => {
+  // Thursday 2026-11-19 12:00 Casablanca -> next Monday 2026-11-23 00:01 Casablanca
+  const thuMs = casablancaWallTimeToUtcMs(2026, 11, 19, 12, 0, 0);
+  const nextMonMs = getNextMondayCasablancaMs(thuMs);
+  const nextMonParts = getCasablancaDateParts(nextMonMs);
+  assert.deepEqual(
+    {
+      year: nextMonParts.year,
+      month: nextMonParts.month,
+      day: nextMonParts.day,
+      weekdayIndex: nextMonParts.weekdayIndex,
+      hour: nextMonParts.hour,
+      minute: nextMonParts.minute,
+    },
+    { year: 2026, month: 11, day: 23, weekdayIndex: 1, hour: 0, minute: 1 }
+  );
+
+  // Monday 00:00:30 Casablanca -> same day 00:01:00
+  const monBeforeReveal = casablancaWallTimeToUtcMs(2026, 11, 23, 0, 0, 30);
+  assert.equal(getNextMondayCasablancaMs(monBeforeReveal), nextMonMs);
+
+  // Monday 00:01:00 Casablanca -> jumps to following Monday 2026-11-30 00:01:00
+  const monAfterReveal = casablancaWallTimeToUtcMs(2026, 11, 23, 0, 1, 0);
+  const followingMonParts = getCasablancaDateParts(getNextMondayCasablancaMs(monAfterReveal));
+  assert.equal(followingMonParts.day, 30);
+  assert.equal(followingMonParts.weekdayIndex, 1);
+});
+
+test('getWeeklyWinnersRevealState shows placeholder before first Monday passes and reveals at Monday 00:01', () => {
+  const approvedThu = casablancaWallTimeToUtcMs(2026, 11, 19, 10, 0, 0);
+  const students: StudentProfile[] = [
+    { id: 's1', name: 'Salma', photoUrl: '', role: 'student', approved: true, createdAt: approvedThu },
+  ];
+
+  const sundayNight = casablancaWallTimeToUtcMs(2026, 11, 22, 23, 59, 0);
+  const before = getWeeklyWinnersRevealState(students, sundayNight);
+  assert.equal(before.hasRevealed, false);
+
+  const mondayReveal = casablancaWallTimeToUtcMs(2026, 11, 23, 0, 1, 0);
+  const atReveal = getWeeklyWinnersRevealState(students, mondayReveal);
+  assert.equal(atReveal.hasRevealed, true);
+});
+
+test('getCountdownParts breaks milliseconds into days, hours, minutes, and seconds cleanly', () => {
+  const ms = (3 * 86400 + 5 * 3600 + 42 * 60 + 9) * 1000;
+  assert.deepEqual(getCountdownParts(ms), {
+    days: 3,
+    hours: 5,
+    minutes: 42,
+    seconds: 9,
+    totalSeconds: 3 * 86400 + 5 * 3600 + 42 * 60 + 9,
+  });
+  assert.deepEqual(getCountdownParts(-5000), {
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+    totalSeconds: 0,
+  });
 });

@@ -8,6 +8,7 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isLeaderboard = pathname === '/' || pathname.startsWith('/student/');
+  const isRules = pathname === '/rules';
   const isDashboard = pathname === '/dashboard';
   const isAdmin = pathname === '/admin';
 
@@ -45,6 +46,18 @@ export function Navbar() {
             }`}
           >
             Leaderboard
+          </a>
+          <a
+            href="/rules"
+            onClick={(e) => {
+              e.preventDefault();
+              handleNav('/rules');
+            }}
+            className={`text-sm font-medium whitespace-nowrap shrink-0 transition-colors hover:text-white py-1 ${
+              isRules ? 'text-white underline decoration-indigo-500 decoration-2 underline-offset-8' : 'text-slate-400'
+            }`}
+          >
+            Rules
           </a>
           <a
             href="/dashboard"
@@ -140,6 +153,18 @@ export function Navbar() {
                 }`}
               >
                 Leaderboard
+              </a>
+              <a
+                href="/rules"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleNav('/rules');
+                }}
+                className={`rounded-xl px-3.5 py-2.5 text-sm font-medium ${
+                  isRules ? 'bg-indigo-500/15 text-white' : 'text-slate-300 hover:bg-white/[0.05]'
+                }`}
+              >
+                Rules
               </a>
               <a
                 href="/dashboard"
