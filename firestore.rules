@@ -149,7 +149,7 @@ service cloud.firestore {
         && incoming().createdAt == existing().createdAt
         && (
           (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['approved', 'name', 'photoUrl'])) ||
-          (isOwner(studentId) && incoming().approved == existing().approved && incoming().role == existing().role && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'photoUrl']))
+          (isOwner(studentId) && incoming().approved == existing().approved && incoming().role == existing().role && incoming().diff(existing()).affectedKeys().hasOnly(['photoUrl']))
         );
       allow delete: if isValidId(studentId) && isAdmin();
     }

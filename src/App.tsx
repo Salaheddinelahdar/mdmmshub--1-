@@ -10,12 +10,12 @@ import { Navbar } from './components/Navbar';
 import { LeaderboardPage } from './pages/LeaderboardPage';
 import { StudentProfilePage } from './pages/StudentProfilePage';
 import { RulesPage } from './pages/RulesPage';
+import { ContactPage } from './pages/ContactPage';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { AdminPage } from './pages/AdminPage';
 import { Footer } from './components/Footer';
-import { WhatsAppButton } from './components/WhatsAppButton';
 
 function RouterView() {
   const { pathname } = useApp();
@@ -26,6 +26,8 @@ function RouterView() {
     page = <StudentProfilePage key={pathname} studentId={id} />;
   } else if (pathname === '/rules') {
     page = <RulesPage key={pathname} />;
+  } else if (pathname === '/contact') {
+    page = <ContactPage key={pathname} />;
   } else if (pathname === '/login') {
     page = <LoginPage key={pathname} />;
   } else if (pathname === '/signup') {
@@ -46,11 +48,10 @@ export default function App() {
     <AppProvider>
       <div className="min-h-screen bg-[#0A0F1E] text-slate-100 flex flex-col">
         <Navbar />
-        <div className="flex-1">
+        <div className="flex-1 flex flex-col">
           <RouterView />
         </div>
         <Footer />
-        <WhatsAppButton />
       </div>
     </AppProvider>
   );

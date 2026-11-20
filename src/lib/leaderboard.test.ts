@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildHallOfFameTop3,
+  buildStudentProgressSeries,
   calculateExamPoints,
   canClaimAction,
   casablancaWallTimeToUtcMs,
@@ -15,8 +16,10 @@ import {
   getCasablancaDateParts,
   getCountdownParts,
   getNextMondayCasablancaMs,
+  getProgressChartDomain,
   getStudentLevel,
   getWeeklyWinnersRevealState,
+  groupLogsByDay,
   POINT_ACTIONS,
   STUDENT_LEVELS,
 } from './leaderboard';
@@ -242,4 +245,79 @@ test('getCountdownParts breaks milliseconds into days, hours, minutes, and secon
     seconds: 0,
     totalSeconds: 0,
   });
+});
+
+test('buildStudentProgressSeries merges same-day entries and tracks cumulative totals', () => {
+  assert.deepEqual(buildStudentProgressSeries([]), []);
+
+  const day1 = casablancaWallTimeToUtcMs(2026, 11, 15, 10, 0, 0);
+  const day2Morning = casablancaWallTimeToUtcMs(2026, 11, 18, 9, 30, 0);
+  const day2Afternoon = casablancaWallTimeToUtcMs(2026, 11, 18, 16, 15, 0);
+  const day3 = casablancaWallTimeToUtcMs(2026, 11, 20, 11, 0, 0);
+
+  const unordered: PointLog[] = [
+    { id: 'l3', studentId: 's1', seasonId: 'fall-2026', action: 'Absent without reason', points: -5, note: 'Late', createdAt: day2Afternoon },
+    { id: 'l1', studentId: 's1', seasonId: 'fall-2026', action: 'Present in front of class', points: 15, note: 'Pitch', createdAt: day1 },
+    { id: 'l2', studentId: 's1', seasonId: 'fall-2026', action: 'Joined a club', points: 30, note: 'Marketing Club', createdAt: day2Morning },
+    { id: 'l4', studentId: 's1', seasonId: 'fall-2026', action: '100% attendance that week', points: 10, note: '', createdAt: day3 },
+  ];
+
+  const series = buildStudentProgressSeries(unordered);
+  // 4 logs across 3 unique days -> 3 merged dots (no repeated dates on X axis)
+  assert.equal(series.length, 3);
+
+  assert.equal(series[0].dateLabel, 'Nov 15');
+  assert.equal(series[0].dayPoints, 15);
+  assert.equal(series[0].cumulativePoints, 15);
+  assert.equal(series[0].actions.length, 1);
+
+  assert.equal(series[1].dateLabel, 'Nov 18');
+  assert.equal(series[1].dayPoints, 25); // 30 + (-5)
+  assert.equal(series[1].cumulativePoints, 40);
+  assert.equal(series[1].actions.length, 2);
+
+  assert.equal(series[2].dateLabel, 'Nov 20');
+  assert.equal(series[2].dayPoints, 10);
+  assert.equal(series[2].cumulativePoints, 50);
+  assert.equal(series[2].tooltipSummary, 'Nov 20 · +10 pts · 100% attendance that week');
+
+  const [minY, maxY] = getProgressChartDomain(series);
+  assert.equal(minY, 0);
+  assert.ok(maxY >= 560);
+
+  const highSeries = buildStudentProgressSeries([
+    { id: 'h1', studentId: 's1', seasonId: 'fall-2026', action: 'Exam score', points: 620, note: '', createdAt: NOW },
+  ]);
+  assert.deepEqual(getProgressChartDomain(highSeries), [0, 700]);
+});
+
+test('groupLogsByDay groups same-day logs in descending date order with accurate dayTotal', () => {
+  assert.deepEqual(groupLogsByDay([]), []);
+
+  const nov15 = casablancaWallTimeToUtcMs(2026, 11, 15, 10, 0, 0);
+  const nov18Morning = casablancaWallTimeToUtcMs(2026, 11, 18, 9, 30, 0);
+  const nov18Evening = casablancaWallTimeToUtcMs(2026, 11, 18, 17, 45, 0);
+  const nov20 = casablancaWallTimeToUtcMs(2026, 11, 20, 14, 0, 0);
+
+  const grouped = groupLogsByDay([
+    { id: 'l1', studentId: 's1', seasonId: 'fall-2026', action: 'Present in front of class', points: 15, note: '', createdAt: nov15 },
+    { id: 'l2', studentId: 's1', seasonId: 'fall-2026', action: 'Joined a club', points: 30, note: 'Growth Lab', createdAt: nov18Morning },
+    { id: 'l3', studentId: 's1', seasonId: 'fall-2026', action: 'Late submission', points: -5, note: 'Deck', createdAt: nov18Evening },
+    { id: 'l4', studentId: 's1', seasonId: 'fall-2026', action: '100% attendance that week', points: 10, note: '', createdAt: nov20 },
+  ]);
+
+  assert.equal(grouped.length, 3);
+  assert.equal(grouped[0].dateLabel, 'Nov 20, 2026');
+  assert.equal(grouped[0].items.length, 1);
+  assert.equal(grouped[0].dayTotal, 10);
+
+  assert.equal(grouped[1].dateLabel, 'Nov 18, 2026');
+  assert.equal(grouped[1].items.length, 2);
+  assert.equal(grouped[1].dayTotal, 25);
+  assert.equal(grouped[1].items[0].id, 'l3');
+  assert.equal(grouped[1].items[1].id, 'l2');
+
+  assert.equal(grouped[2].dateLabel, 'Nov 15, 2026');
+  assert.equal(grouped[2].items.length, 1);
+  assert.equal(grouped[2].dayTotal, 15);
 });

@@ -1,18 +1,12 @@
-import { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Camera } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { computeNextRankGap, getStudentLevel } from '../lib/leaderboard';
+import { getStudentLevel, groupLogsByDay } from '../lib/leaderboard';
+import { resizeAvatarFile } from '../lib/firebase';
 import { Avatar } from '../components/Avatar';
 import { AnimatedNumber } from '../components/AnimatedNumber';
-
-function formatDate(ms: number): string {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(new Date(ms));
-}
+import { PointsProgressChart } from '../components/PointsProgressChart';
 
 export function DashboardPage() {
   const {
@@ -22,7 +16,11 @@ export function DashboardPage() {
     logs,
     selectedSeasonId,
     navigate,
+    updateOwnPhoto,
   } = useApp();
+
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   const currentStudent = useMemo(
     () => (session ? students.find((s) => s.id === session.uid) : undefined),
@@ -34,11 +32,6 @@ export function DashboardPage() {
     [rankedStudents, session]
   );
 
-  const rankGap = useMemo(
-    () => (session ? computeNextRankGap(rankedStudents, session.uid) : null),
-    [rankedStudents, session]
-  );
-
   const myLogs = useMemo(() => {
     if (!session) return [];
     return logs
@@ -46,23 +39,57 @@ export function DashboardPage() {
       .sort((a, b) => b.createdAt - a.createdAt);
   }, [logs, selectedSeasonId, session]);
 
+  const groupedDays = useMemo(() => groupLogsByDay(myLogs), [myLogs]);
+
   const isApproved = currentStudent?.approved ?? session?.approved ?? false;
   const myPoints = rankedSelf?.totalPoints ?? 0;
+  const weeklyPts = rankedSelf?.weeklyPoints ?? 0;
   const myLevel = getStudentLevel(myPoints);
+  const activePhotoUrl = currentStudent?.photoUrl ?? session?.photoUrl ?? '';
+  const displayName = currentStudent?.name || session?.name || 'Student';
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setPhotoError(null);
+    setPhotoBusy(true);
+    try {
+      const resized = await resizeAvatarFile(file);
+      const res = await updateOwnPhoto(resized);
+      if (!res.ok) {
+        setPhotoError(res.error || 'Could not update photo.');
+      }
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : 'Unable to process image.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    setPhotoError(null);
+    setPhotoBusy(true);
+    const res = await updateOwnPhoto('');
+    setPhotoBusy(false);
+    if (!res.ok) {
+      setPhotoError(res.error || 'Could not remove photo.');
+    }
+  };
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -16 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
+      exit={{ opacity: 0, y: -12 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
     >
       {!session ? (
         <main className="mx-auto max-w-2xl px-4 sm:px-6 py-12">
           <section className="rounded-2xl border border-white/[0.08] bg-[#11182E]/80 backdrop-blur-md p-8 text-center space-y-5">
-            <h1 className="font-display text-2xl font-bold text-white">Student Dashboard</h1>
+            <h1 className="font-display text-2xl font-bold text-white">Student Profile</h1>
             <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
-              Sign in to track your live class rank, weekly point gains, and see how close you are to the next position.
+              Sign in to track your live class rank, weekly point gains, and update your profile photo.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
               <button
@@ -103,141 +130,199 @@ export function DashboardPage() {
           </section>
         </main>
       ) : (
-        <main className="mx-auto max-w-4xl px-4 sm:px-6 py-8 sm:py-10 space-y-8">
-      {/* Header */}
-      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Avatar name={session.name} src={currentStudent?.photoUrl || session.photoUrl} size="lg" />
-          <div>
-            <p className="text-xs font-medium text-indigo-300">My Student Dashboard</p>
-            <h1 className="font-display text-2xl sm:text-3xl font-bold text-white">
-              {session.name}
-            </h1>
-          </div>
-        </div>
-        {isApproved && (
-          <button
-            type="button"
-            onClick={() => navigate(`/student/${session.uid}`)}
-            className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-xs sm:text-sm font-medium text-slate-100 hover:bg-white/[0.12] transition-colors cursor-pointer self-start sm:self-auto"
-          >
-            View Public Profile
-          </button>
-        )}
-      </section>
+        <main className="mx-auto max-w-4xl px-4 sm:px-6 py-4 sm:py-6 space-y-5">
+          {/* Compact Single Hero Card */}
+          <div className="space-y-2">
+            <section className="rounded-2xl border border-white/[0.08] bg-[#11182E]/80 backdrop-blur-md p-4 sm:p-5 space-y-4">
+              <div className="flex items-center gap-3.5 sm:gap-4">
+                <label
+                  htmlFor="profile-photo-upload"
+                  className="relative group cursor-pointer rounded-full shrink-0 focus-within:ring-2 focus-within:ring-indigo-400"
+                  aria-label="Change profile photo"
+                  title="Change profile photo"
+                >
+                  <Avatar name={displayName} src={activePhotoUrl} size="lg" />
+                  <span className="absolute inset-0 rounded-full bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Camera className="h-5 w-5 text-white" aria-hidden="true" />
+                  </span>
+                  <span className="absolute -bottom-0.5 -right-0.5 h-6 w-6 rounded-full bg-indigo-500 border-2 border-[#11182E] flex items-center justify-center shadow">
+                    <Camera className="h-3 w-3 text-white" aria-hidden="true" />
+                  </span>
+                  <input
+                    id="profile-photo-upload"
+                    type="file"
+                    accept="image/*"
+                    disabled={photoBusy}
+                    onChange={handlePhotoChange}
+                    className="sr-only"
+                  />
+                </label>
 
-      {!isApproved ? (
-        <section className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6 space-y-2">
-          <p className="text-xs font-semibold text-amber-300">Pending Approval</p>
-          <h2 className="font-display text-lg font-bold text-white">
-            Your account is awaiting admin review
-          </h2>
-          <p className="text-sm text-slate-300 leading-relaxed">
-            Once your instructor approves your signup, your profile will appear on the public leaderboard and you can track your points here.
-          </p>
-        </section>
-      ) : (
-        <>
-          {/* Personal Stats Cards */}
-          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="rounded-2xl border border-white/[0.08] bg-[#11182E]/80 backdrop-blur-md p-6">
-              <p className="text-xs text-slate-400">Current Rank</p>
-              <p className="font-mono-tabular text-3xl font-bold text-white mt-2">
-                {rankedSelf ? `#${rankedSelf.rank}` : '—'}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-white/[0.08] bg-[#11182E]/80 backdrop-blur-md p-6">
-              <p className="text-xs text-slate-400">Level {myLevel.level}</p>
-              <p className="font-display text-2xl sm:text-3xl font-bold text-white mt-2 flex items-center gap-2">
-                <span aria-hidden="true">{myLevel.icon}</span>
-                <span>{myLevel.name}</span>
-              </p>
-              <p className="text-xs text-slate-400 font-mono-tabular mt-1.5">
-                {myLevel.nextLevelPoints !== null
-                  ? `${Math.max(0, myLevel.nextLevelPoints - myPoints)} pts to Level ${myLevel.level + 1}`
-                  : 'Max level reached'}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-white/[0.08] bg-[#11182E]/80 backdrop-blur-md p-6">
-              <p className="text-xs text-slate-400">Total Points</p>
-              <p className="text-3xl font-bold text-indigo-300 mt-2">
-                <AnimatedNumber value={myPoints} suffix=" pts" />
-              </p>
-            </div>
-            <div className="rounded-2xl border border-white/[0.08] bg-[#11182E]/80 backdrop-blur-md p-6">
-              <p className="text-xs text-slate-400">Points This Week</p>
-              <p className="font-mono-tabular text-3xl font-bold text-emerald-400 mt-2">
-                {(rankedSelf?.weeklyPoints ?? 0) >= 0
-                  ? `+${rankedSelf?.weeklyPoints ?? 0}`
-                  : rankedSelf?.weeklyPoints}{' '}
-                pts
-              </p>
-            </div>
-          </section>
-
-          {/* Motivational Line */}
-          {rankGap && (
-            <section className="rounded-2xl border border-indigo-400/25 bg-indigo-500/[0.1] px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <p className="text-sm sm:text-base font-medium text-indigo-100">
-                {rankGap.message}
-              </p>
-              <button
-                type="button"
-                onClick={() => navigate('/')}
-                className="text-xs sm:text-sm font-semibold text-indigo-300 hover:text-indigo-200 whitespace-nowrap cursor-pointer text-left"
-              >
-                Check Full Leaderboard →
-              </button>
-            </section>
-          )}
-
-          {/* My Points History Timeline */}
-          <section className="space-y-4">
-            <h2 className="font-display text-xl font-bold text-white">My Points History</h2>
-            {myLogs.length === 0 ? (
-              <div className="rounded-2xl border border-white/[0.08] bg-[#11182E]/70 p-10 text-center text-sm text-slate-400">
-                No points logged for this season yet.
+                <div className="min-w-0">
+                  <h1 className="font-display text-lg sm:text-2xl font-bold text-white truncate">
+                    {displayName}
+                  </h1>
+                  <p className="text-xs sm:text-sm text-slate-300 mt-0.5 flex items-center gap-1.5">
+                    <span aria-hidden="true">{myLevel.icon}</span>
+                    <span>{myLevel.name}</span>
+                    <span aria-hidden="true" className="text-slate-500">·</span>
+                    <span className="text-slate-400">Level {myLevel.level}</span>
+                  </p>
+                </div>
               </div>
-            ) : (
-              <div className="rounded-2xl border border-white/[0.08] bg-[#11182E]/75 backdrop-blur-md p-5 sm:p-6">
-                <ol className="relative border-l border-white/10 ml-3 space-y-6">
-                  {myLogs.map((log) => {
-                    const isPositive = log.points >= 0;
-                    return (
-                      <li key={log.id} className="pl-6 relative">
-                        <span
-                          aria-hidden="true"
-                          className={`absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full ring-4 ring-[#0A0F1E] ${
-                            isPositive ? 'bg-emerald-400' : 'bg-rose-400'
-                          }`}
-                        />
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div>
-                            <p className="text-sm sm:text-base font-semibold text-white">
-                              {log.action}
-                            </p>
-                            <p className="text-xs text-slate-400 mt-0.5">
-                              <span className="font-mono-tabular">{formatDate(log.createdAt)}</span>
-                              {log.note ? ` · ${log.note}` : ''}
-                            </p>
-                          </div>
-                          <span
-                            className={`font-mono-tabular text-sm sm:text-base font-bold ${
-                              isPositive ? 'text-emerald-400' : 'text-rose-400'
-                            }`}
-                          >
-                            {isPositive ? `+${log.points} pts` : `${log.points} pts`}
-                          </span>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ol>
+
+              {isApproved && (
+                <div className="grid grid-cols-3 gap-2 pt-3.5 border-t border-white/[0.07] text-center">
+                  <div>
+                    <p className="font-mono-tabular text-lg sm:text-2xl font-bold text-white">
+                      {rankedSelf ? `#${rankedSelf.rank}` : '—'}
+                    </p>
+                    <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5">Rank</p>
+                  </div>
+                  <div>
+                    <p className="font-mono-tabular text-lg sm:text-2xl font-bold text-indigo-300">
+                      <AnimatedNumber value={myPoints} suffix=" pts" />
+                    </p>
+                    <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5">Total</p>
+                  </div>
+                  <div>
+                    <p className="font-mono-tabular text-lg sm:text-2xl font-bold text-emerald-400">
+                      +{Math.max(0, weeklyPts)} pts
+                    </p>
+                    <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5">This Week</p>
+                  </div>
+                </div>
+              )}
+
+              {photoError && (
+                <p role="alert" className="text-xs text-rose-300">
+                  {photoError}
+                </p>
+              )}
+            </section>
+
+            {/* Quiet links below hero card */}
+            {(isApproved || activePhotoUrl) && (
+              <div className="flex items-center justify-between gap-4 px-1 text-xs">
+                {activePhotoUrl ? (
+                  <button
+                    type="button"
+                    disabled={photoBusy}
+                    onClick={handleRemovePhoto}
+                    className="text-slate-400 hover:text-rose-300 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Remove photo
+                  </button>
+                ) : (
+                  <span />
+                )}
+                {isApproved && (
+                  <a
+                    href={`/student/${session.uid}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate(`/student/${session.uid}`);
+                    }}
+                    className="text-indigo-300 hover:text-indigo-200 font-medium underline underline-offset-4"
+                  >
+                    View Public Profile
+                  </a>
+                )}
               </div>
             )}
-          </section>
-        </>
-      )}
+          </div>
+
+          {!isApproved ? (
+            <section className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 space-y-1.5">
+              <p className="text-xs font-semibold text-amber-300">Pending Approval</p>
+              <h2 className="font-display text-base sm:text-lg font-bold text-white">
+                Your account is awaiting admin review
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                Once your instructor approves your signup, your profile will appear on the public leaderboard and you can track your points here.
+              </p>
+            </section>
+          ) : (
+            <>
+              {/* Points Progress Chart */}
+              <PointsProgressChart logs={myLogs} />
+
+              {/* My Points History Grouped by Day */}
+              <section className="space-y-3">
+                <h2 className="font-display text-lg sm:text-xl font-bold text-white">
+                  My Points History
+                </h2>
+                {groupedDays.length === 0 ? (
+                  <div className="rounded-2xl border border-white/[0.08] bg-[#11182E]/70 p-6 text-center text-xs sm:text-sm text-slate-400">
+                    No points logged for this season yet.
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-white/[0.08] bg-[#11182E]/80 backdrop-blur-md divide-y divide-white/[0.06]">
+                    {groupedDays.map((group) => {
+                      if (group.items.length === 1) {
+                        const item = group.items[0];
+                        const isPos = item.points >= 0;
+                        return (
+                          <div
+                            key={group.dateKey}
+                            className="px-4 py-3 flex items-center justify-between gap-3 text-xs sm:text-sm"
+                          >
+                            <p className="min-w-0 text-slate-200">
+                              <span className="font-mono-tabular text-slate-400">{group.dateLabel}</span>
+                              <span aria-hidden="true" className="text-slate-500"> · </span>
+                              <span className="font-medium text-white">{item.action}</span>
+                            </p>
+                            <span
+                              className={`font-mono-tabular font-bold whitespace-nowrap shrink-0 ${
+                                isPos ? 'text-emerald-400' : 'text-rose-400'
+                              }`}
+                            >
+                              {isPos ? `+${item.points} pts` : `${item.points} pts`}
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div key={group.dateKey} className="px-4 py-3 space-y-2 text-xs sm:text-sm">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="font-mono-tabular text-slate-400">{group.dateLabel}</span>
+                            <span
+                              className={`font-mono-tabular text-xs font-semibold ${
+                                group.dayTotal >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                              }`}
+                            >
+                              {group.dayTotal >= 0 ? `+${group.dayTotal} pts` : `${group.dayTotal} pts`}
+                            </span>
+                          </div>
+                          <ul className="pl-3 border-l border-white/10 space-y-1.5">
+                            {group.items.map((item) => {
+                              const isPos = item.points >= 0;
+                              return (
+                                <li
+                                  key={item.id}
+                                  className="flex items-center justify-between gap-3"
+                                >
+                                  <span className="text-slate-200">{item.action}</span>
+                                  <span
+                                    className={`font-mono-tabular font-semibold whitespace-nowrap shrink-0 ${
+                                      isPos ? 'text-emerald-400' : 'text-rose-400'
+                                    }`}
+                                  >
+                                    {isPos ? `+${item.points} pts` : `${item.points} pts`}
+                                  </span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            </>
+          )}
         </main>
       )}
     </motion.div>

@@ -9,6 +9,7 @@ export function Navbar() {
 
   const isLeaderboard = pathname === '/' || pathname.startsWith('/student/');
   const isRules = pathname === '/rules';
+  const isContact = pathname === '/contact';
   const isDashboard = pathname === '/dashboard';
   const isAdmin = pathname === '/admin';
 
@@ -37,7 +38,7 @@ export function Navbar() {
         </a>
 
         {/* Zone 2: Concise single-line nav links (desktop) */}
-        <nav aria-label="Primary navigation" className="hidden md:flex items-center gap-7">
+        <nav aria-label="Primary navigation" className="hidden md:flex items-center gap-6">
           <a
             href="/"
             onClick={(e) => {
@@ -63,6 +64,18 @@ export function Navbar() {
             Rules
           </a>
           <a
+            href="/contact"
+            onClick={(e) => {
+              e.preventDefault();
+              handleNav('/contact');
+            }}
+            className={`text-sm font-medium whitespace-nowrap shrink-0 transition-colors hover:text-white py-1 ${
+              isContact ? 'text-white underline decoration-indigo-500 decoration-2 underline-offset-8' : 'text-slate-400'
+            }`}
+          >
+            Contact
+          </a>
+          <a
             href="/dashboard"
             onClick={(e) => {
               e.preventDefault();
@@ -86,24 +99,14 @@ export function Navbar() {
           >
             Admin
           </a>
-          {!session && (
-            <a
-              href="/signup"
-              onClick={(e) => {
-                e.preventDefault();
-                handleNav('/signup');
-              }}
-              className={`text-sm font-medium whitespace-nowrap shrink-0 transition-colors hover:text-white py-1 ${
-                pathname === '/signup' ? 'text-white underline decoration-indigo-500 decoration-2 underline-offset-8' : 'text-slate-400'
-              }`}
-            >
-              Sign Up
-            </a>
-          )}
         </nav>
 
         {/* Zone 3: Single Primary Action + Mobile Menu Trigger */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div
+          className={`flex items-center gap-2.5 shrink-0 ${
+            !session && (pathname === '/login' || pathname === '/signup') ? 'md:hidden' : ''
+          }`}
+        >
           {session ? (
             <button
               type="button"
@@ -112,7 +115,7 @@ export function Navbar() {
             >
               Sign Out
             </button>
-          ) : (
+          ) : pathname !== '/login' && pathname !== '/signup' ? (
             <button
               type="button"
               onClick={() => handleNav('/login')}
@@ -120,7 +123,7 @@ export function Navbar() {
             >
               Sign In
             </button>
-          )}
+          ) : null}
 
           <button
             type="button"
@@ -170,6 +173,18 @@ export function Navbar() {
                 Rules
               </a>
               <a
+                href="/contact"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleNav('/contact');
+                }}
+                className={`rounded-xl px-3.5 py-2.5 text-sm font-medium ${
+                  isContact ? 'bg-indigo-500/15 text-white' : 'text-slate-300 hover:bg-white/[0.05]'
+                }`}
+              >
+                Contact
+              </a>
+              <a
                 href="/dashboard"
                 onClick={(e) => {
                   e.preventDefault();
@@ -193,20 +208,6 @@ export function Navbar() {
               >
                 Admin
               </a>
-              {!session && (
-                <a
-                  href="/signup"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleNav('/signup');
-                  }}
-                  className={`rounded-xl px-3.5 py-2.5 text-sm font-medium ${
-                    pathname === '/signup' ? 'bg-indigo-500/15 text-white' : 'text-slate-300 hover:bg-white/[0.05]'
-                  }`}
-                >
-                  Sign Up
-                </a>
-              )}
             </nav>
           </motion.div>
         )}

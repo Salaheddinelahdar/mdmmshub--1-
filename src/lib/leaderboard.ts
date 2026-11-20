@@ -458,3 +458,160 @@ export function getCountdownParts(remainingMs: number): CountdownParts {
   const seconds = totalSeconds % 60;
   return { days, hours, minutes, seconds, totalSeconds };
 }
+
+export interface ProgressChartAction {
+  id: string;
+  action: string;
+  points: number;
+}
+
+export interface ProgressChartPoint {
+  key: string;
+  dateKey: string;
+  dateLabel: string;
+  fullDateLabel: string;
+  dayPoints: number;
+  cumulativePoints: number;
+  actions: ProgressChartAction[];
+  tooltipSummary: string;
+  createdAt: number;
+}
+
+export const LEVEL_CHART_MARKERS: Array<{
+  points: number;
+  icon: string;
+  shortLabel: string;
+  color: string;
+}> = [
+  { points: 50, icon: '🌱', shortLabel: '🌱 50', color: '#94A3B8' },
+  { points: 150, icon: '📚', shortLabel: '📚 150', color: '#818CF8' },
+  { points: 300, icon: '⚡', shortLabel: '⚡ 300', color: '#A78BFA' },
+  { points: 500, icon: '🔥', shortLabel: '🔥 500', color: '#FBBF24' },
+];
+
+const shortDateFmt = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  timeZone: MOROCCO_TIMEZONE,
+});
+
+const fullDateFmt = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  timeZone: MOROCCO_TIMEZONE,
+});
+
+export function getCasablancaDayKey(epochMs: number): string {
+  const parts = getCasablancaDateParts(epochMs);
+  const mm = String(parts.month).padStart(2, '0');
+  const dd = String(parts.day).padStart(2, '0');
+  return `${parts.year}-${mm}-${dd}`;
+}
+
+export function buildStudentProgressSeries(logs: PointLog[]): ProgressChartPoint[] {
+  if (logs.length === 0) return [];
+  const chronological = [...logs].sort((a, b) => {
+    if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
+    return a.id.localeCompare(b.id);
+  });
+
+  const dayMap = new Map<
+    string,
+    {
+      dateKey: string;
+      dateLabel: string;
+      fullDateLabel: string;
+      dayPoints: number;
+      actions: ProgressChartAction[];
+      createdAt: number;
+    }
+  >();
+
+  for (const log of chronological) {
+    const dateKey = getCasablancaDayKey(log.createdAt);
+    const existing = dayMap.get(dateKey);
+    if (existing) {
+      existing.dayPoints += log.points;
+      existing.actions.push({ id: log.id, action: log.action, points: log.points });
+      existing.createdAt = Math.max(existing.createdAt, log.createdAt);
+    } else {
+      const d = new Date(log.createdAt);
+      dayMap.set(dateKey, {
+        dateKey,
+        dateLabel: shortDateFmt.format(d),
+        fullDateLabel: fullDateFmt.format(d),
+        dayPoints: log.points,
+        actions: [{ id: log.id, action: log.action, points: log.points }],
+        createdAt: log.createdAt,
+      });
+    }
+  }
+
+  let cumulative = 0;
+  const result: ProgressChartPoint[] = [];
+  for (const day of dayMap.values()) {
+    cumulative += day.dayPoints;
+    const signedPts = day.dayPoints >= 0 ? `+${day.dayPoints} pts` : `${day.dayPoints} pts`;
+    const actionNames = day.actions.map((a) => a.action).join(', ');
+    result.push({
+      key: day.dateKey,
+      dateKey: day.dateKey,
+      dateLabel: day.dateLabel,
+      fullDateLabel: day.fullDateLabel,
+      dayPoints: day.dayPoints,
+      cumulativePoints: cumulative,
+      actions: day.actions,
+      tooltipSummary: `${day.dateLabel} · ${signedPts} · ${actionNames}`,
+      createdAt: day.createdAt,
+    });
+  }
+
+  return result;
+}
+
+export function getProgressChartDomain(series: ProgressChartPoint[]): [number, number] {
+  if (series.length === 0) return [0, 560];
+  const minCumulative = Math.min(0, ...series.map((p) => p.cumulativePoints));
+  const maxCumulative = Math.max(0, ...series.map((p) => p.cumulativePoints));
+  const minY = minCumulative < 0 ? Math.floor((minCumulative - 10) / 10) * 10 : 0;
+  const maxY = Math.max(560, Math.ceil((maxCumulative + 50) / 50) * 50);
+  return [minY, maxY];
+}
+
+export interface DayLogGroup {
+  dateKey: string;
+  dateLabel: string;
+  dayTotal: number;
+  items: PointLog[];
+}
+
+export function groupLogsByDay(logs: PointLog[]): DayLogGroup[] {
+  if (logs.length === 0) return [];
+  const sortedDesc = [...logs].sort((a, b) => {
+    if (b.createdAt !== a.createdAt) return b.createdAt - a.createdAt;
+    return b.id.localeCompare(a.id);
+  });
+
+  const groups: DayLogGroup[] = [];
+  const byKey = new Map<string, DayLogGroup>();
+
+  for (const log of sortedDesc) {
+    const dateKey = getCasablancaDayKey(log.createdAt);
+    let group = byKey.get(dateKey);
+    if (!group) {
+      group = {
+        dateKey,
+        dateLabel: fullDateFmt.format(new Date(log.createdAt)),
+        dayTotal: 0,
+        items: [],
+      };
+      byKey.set(dateKey, group);
+      groups.push(group);
+    }
+    group.dayTotal += log.points;
+    group.items.push(log);
+  }
+
+  return groups;
+}

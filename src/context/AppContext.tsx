@@ -73,7 +73,7 @@ interface AddPointsPayload {
   customPoints?: number;
 }
 
-interface AppContextValue {
+export interface AppContextValue {
   pathname: string;
   navigate: (to: string) => void;
   loading: boolean;
@@ -100,6 +100,7 @@ interface AppContextValue {
     studentId: string,
     payload: { name: string; photoUrl: string }
   ) => Promise<{ ok: boolean; error?: string }>;
+  updateOwnPhoto: (photoUrl: string) => Promise<{ ok: boolean; error?: string }>;
   deleteStudent: (studentId: string) => Promise<{ ok: boolean; error?: string }>;
   awardPoints: (payload: AddPointsPayload) => Promise<{ ok: boolean; error?: string }>;
   createExam: (name: string, seasonId: string) => Promise<{ ok: boolean; error?: string }>;
@@ -107,7 +108,7 @@ interface AppContextValue {
   seedFirestoreCohort: () => Promise<{ ok: boolean; error?: string }>;
 }
 
-const AppContext = createContext<AppContextValue | null>(null);
+export const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [pathname, setPathname] = useState<string>(() => window.location.pathname || '/');
@@ -524,6 +525,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const updateOwnPhoto = useCallback(
+    async (photoUrl: string): Promise<{ ok: boolean; error?: string }> => {
+      if (!session || session.role !== 'student') {
+        return { ok: false, error: 'Only signed-in students can update their profile photo.' };
+      }
+      if (photoUrl.length > 120000) {
+        return { ok: false, error: 'Profile image is too large. Please choose a smaller photo.' };
+      }
+      try {
+        await updateDoc(doc(db, 'students', session.uid), { photoUrl });
+        setFsOwnStudent((prev) => (prev && prev.id === session.uid ? { ...prev, photoUrl } : prev));
+        setFirebaseSession((prev) => (prev && prev.uid === session.uid ? { ...prev, photoUrl } : prev));
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'Failed to update profile photo.' };
+      }
+    },
+    [session]
+  );
+
   const deleteStudent = useCallback(async (studentId: string): Promise<{ ok: boolean; error?: string }> => {
     try {
       const [logsSnap, scoresSnap, hofSnap] = await Promise.all([
@@ -742,6 +763,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     approveStudent,
     rejectStudent,
     updateStudentProfile,
+    updateOwnPhoto,
     deleteStudent,
     awardPoints,
     createExam,

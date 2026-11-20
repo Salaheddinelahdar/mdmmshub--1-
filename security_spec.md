@@ -7,6 +7,7 @@
 4. **Admin-Only Points & Seasons**: Only verified admins (`isAdmin()`) may create/update/delete `point_logs`, `seasons`, `exams`, `exam_scores`, `hall_of_fame`, or approve/reject student accounts.
 5. **Relational & Temporal Integrity**: All `point_logs` must reference an existing `/students/{studentId}` and `/seasons/{seasonId}`. Every `createdAt` timestamp must equal `request.time`.
 6. **UCA Email Domain Gate**: Non-admin student creation on `/students/{studentId}` and `/users_private/{userId}` requires an authenticated `@uca.ac.ma` email (`request.auth.token.email`). Verified admins (`isAdmin()`) are exempt from this domain restriction.
+7. **Photo-Only Student Self-Edit**: Authenticated students updating their own `/students/{studentId}` document may modify only `photoUrl` (`name`, `approved`, `role`, `id`, and `createdAt` remain immutable for non-admin owners).
 
 ## 2. The "Dirty Dozen" Adversarial Payloads
 1. **Self-Approval on Signup**: Student creates `/students/{uid}` with `approved: true` -> `PERMISSION_DENIED`.
