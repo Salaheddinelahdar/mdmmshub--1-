@@ -48,7 +48,7 @@ function RouterView() {
 }
 
 function GateHeader() {
-  const { session, logout, navigate, pathname } = useApp();
+  const { session, logout } = useApp();
   return (
     <header className="sticky top-0 z-40 border-b border-(color:--c-ink)/[0.10] bg-(color:--c-page)/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
@@ -66,28 +66,7 @@ function GateHeader() {
             >
               Sign out
             </button>
-          ) : (
-            <>
-              {pathname !== '/login' && (
-                <button
-                  type="button"
-                  onClick={() => navigate('/login')}
-                  className="rounded-xl border border-(color:--c-ink)/[0.10] px-3.5 py-2 text-sm font-medium text-(color:--c-ink2) hover:bg-(color:--c-ink)/[0.045] cursor-pointer"
-                >
-                  Sign in
-                </button>
-              )}
-              {pathname !== '/signup' && (
-                <button
-                  type="button"
-                  onClick={() => navigate('/signup')}
-                  className="rounded-xl bg-(color:--c-accent) px-3.5 py-2 text-sm font-semibold text-white hover:bg-(color:--c-accent-d) cursor-pointer"
-                >
-                  Sign up
-                </button>
-              )}
-            </>
-          )}
+          ) : null}
         </div>
       </div>
     </header>

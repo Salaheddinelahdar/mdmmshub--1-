@@ -19,6 +19,7 @@ export function SignupPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [photoUrl, setPhotoUrl] = useState('');
   const [classCode, setClassCode] = useState('');
+  const [remember, setRemember] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [pendingSuccess, setPendingSuccess] = useState(false);
@@ -55,7 +56,7 @@ export function SignupPage() {
       return;
     }
     setSubmitting(true);
-    const res = await signupStudent({ name, email: normalizedEmail, password, photoUrl });
+    const res = await signupStudent({ name, email: normalizedEmail, password, photoUrl, remember });
     setSubmitting(false);
     if (!res.ok) {
       setErrorMsg(res.error || 'Unable to register.');
@@ -261,6 +262,16 @@ export function SignupPage() {
                   </p>
                 )}
               </div>
+
+              <label className="flex items-center gap-2 text-xs text-(color:--c-sub) cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                  className="h-4 w-4 rounded border-(color:--c-ink)/[0.25] accent-[#C96442] cursor-pointer"
+                />
+                Remember me
+              </label>
 
               <button
                 type="submit"

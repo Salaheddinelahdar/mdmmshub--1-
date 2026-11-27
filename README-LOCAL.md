@@ -1,3 +1,4 @@
+v11: navbar without Sign in/up, Remember me checkbox, sticky header on mobile. See CHANGES-v11.txt
 # MDMMS space v6, local test (test Firebase project)
 
 This copy is already pointed at the test project mdmms-test-4947b (see firebase-applet-config.json). Your live class project is not used.

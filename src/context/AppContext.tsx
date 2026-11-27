@@ -1,6 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
+  browserLocalPersistence,
+  browserSessionPersistence,
   createUserWithEmailAndPassword,
+  setPersistence,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
@@ -55,6 +58,7 @@ function tsToMs(val: unknown): number {
 }
 
 interface SignupPayload {
+  remember?: boolean;
   name: string;
   email: string;
   password: string;
@@ -87,7 +91,7 @@ export interface AppContextValue {
   rankedStudents: RankedStudent[];
   weeklyMvp: RankedStudent | null;
   pendingStudents: StudentProfile[];
-  loginWithEmail: (email: string, password: string) => Promise<{ ok: boolean; error?: string; role?: string }>;
+  loginWithEmail: (email: string, password: string, remember?: boolean) => Promise<{ ok: boolean; error?: string; role?: string }>;
   signupStudent: (payload: SignupPayload) => Promise<{ ok: boolean; error?: string; pending?: boolean }>;
   logout: () => Promise<void>;
   approveStudent: (studentId: string) => Promise<void>;
@@ -399,10 +403,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [students, fsPrivateUsers]);
 
   const loginWithEmail = useCallback(
-    async (emailInput: string, password: string): Promise<{ ok: boolean; error?: string; role?: string }> => {
+    async (emailInput: string, password: string, remember: boolean = true): Promise<{ ok: boolean; error?: string; role?: string }> => {
       const email = emailInput.trim().toLowerCase();
       if (!email || !password) {
         return { ok: false, error: 'Please enter both your email and password.' };
+      }
+
+      try {
+        await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
+      } catch {
+        // keep the default if the browser blocks storage
       }
 
       // Check server-configured ADMIN_EMAIL / ADMIN_PASSWORD first
@@ -453,7 +463,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const signupStudent = useCallback(
-    async ({ name, email, password, photoUrl }: SignupPayload): Promise<{ ok: boolean; error?: string; pending?: boolean }> => {
+    async ({ name, email, password, photoUrl, remember = true }: SignupPayload): Promise<{ ok: boolean; error?: string; pending?: boolean }> => {
       const trimmedName = name.trim();
       const trimmedEmail = email.trim().toLowerCase();
 
@@ -470,6 +480,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return { ok: false, error: 'Password must be at least 6 characters.' };
       }
 
+      try {
+        await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
+      } catch {
+        // keep the default
+      }
       try {
         const cred = await createUserWithEmailAndPassword(auth, trimmedEmail, password);
         await updateProfile(cred.user, { displayName: trimmedName });

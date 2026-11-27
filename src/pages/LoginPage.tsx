@@ -8,6 +8,7 @@ export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -19,7 +20,7 @@ export function LoginPage() {
       return;
     }
     setSubmitting(true);
-    const res = await loginWithEmail(email, password);
+    const res = await loginWithEmail(email, password, remember);
     setSubmitting(false);
     if (!res.ok) {
       setErrorMsg(res.error || 'Unable to sign in.');
@@ -103,6 +104,16 @@ export function LoginPage() {
                 </button>
               </div>
             </div>
+
+            <label className="flex items-center gap-2 text-xs text-(color:--c-sub) cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="h-4 w-4 rounded border-(color:--c-ink)/[0.25] accent-[#C96442] cursor-pointer"
+              />
+              Remember me
+            </label>
 
             <button
               type="submit"

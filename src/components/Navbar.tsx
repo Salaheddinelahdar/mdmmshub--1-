@@ -127,7 +127,7 @@ export function Navbar() {
         {/* Zone 3: Single Primary Action + Mobile Menu Trigger */}
         <div
           className={`flex items-center gap-2.5 shrink-0 ${
-            !session && (pathname === '/login' || pathname === '/signup') ? 'md:hidden' : ''
+            ''
           }`}
         >
           <ThemeToggle />
@@ -138,14 +138,6 @@ export function Navbar() {
               className="rounded-lg border border-(color:--c-ink)/[0.10] bg-(color:--c-ink)/[0.045] px-4 py-2 text-xs sm:text-sm font-medium text-(color:--c-ink2) hover:bg-(color:--c-ink)/[0.045] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               Sign Out
-            </button>
-          ) : pathname !== '/login' && pathname !== '/signup' ? (
-            <button
-              type="button"
-              onClick={() => handleNav('/login')}
-              className="rounded-lg bg-(color:--c-accent) px-4 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-(color:--c-accent-d) transition-colors whitespace-nowrap shrink-0 cursor-pointer shadow-sm"
-            >
-              Sign In
             </button>
           ) : null}
 
@@ -169,7 +161,7 @@ export function Navbar() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: '100%' }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="md:hidden fixed inset-x-0 top-16 z-40 border-b border-(color:--c-ink)/[0.10] bg-(color:--c-page)/95 backdrop-blurshadow-sm"
+            className="md:hidden fixed inset-x-0 top-16 z-40 border-b border-(color:--c-ink)/[0.10] bg-(color:--c-page) shadow-lg"
           >
             <nav aria-label="Mobile navigation" className="px-4 py-3 flex flex-col gap-1">
               <a

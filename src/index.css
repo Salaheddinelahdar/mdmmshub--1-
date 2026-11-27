@@ -27,7 +27,7 @@
     font-family: var(--font-sans);
     background-color: var(--c-page);
     color: var(--c-ink);
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   h1, h2, h3, .font-display {
