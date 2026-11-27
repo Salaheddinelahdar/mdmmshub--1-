@@ -16,33 +16,33 @@ export function ContactPage() {
       <main className="flex-1 flex items-center justify-center px-4 sm:px-6 py-8 sm:py-12">
         <div className="w-full max-w-2xl space-y-8">
           <div className="text-center space-y-2">
-            <h1 className="font-display text-3xl sm:text-4xl font-bold text-white tracking-tight">
-              Get in Touch
+            <h1 className="font-display text-3xl sm:text-4xl font-bold text-(color:--c-ink) tracking-tight">
+              Get in touch
             </h1>
-            <p className="text-sm sm:text-base text-slate-400 max-w-md mx-auto">
-              Have a question or want to send proof of an activity? Reach out directly.
+            <p className="text-sm sm:text-base text-(color:--c-muted) max-w-md mx-auto">
+              Questions, or proof of an activity? Write to your instructor here. WhatsApp is the fastest way to send photos.
             </p>
           </div>
 
           <section className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {/* Email Card */}
-            <div className="rounded-2xl border border-white/[0.08] bg-[#11182E]/80 backdrop-blur-md p-6 flex flex-col justify-between gap-6 transition-all duration-200 hover:-translate-y-1 hover:border-white/15 hover:shadow-xl hover:shadow-black/30">
+            <div className="rounded-xl border border-(color:--c-ink)/[0.10] bg-(color:--c-surface) p-6 flex flex-col justify-between gap-6 transition-all duration-200 hover:-translate-y-1 hover:border-(color:--c-ink)/[0.10] ">
               <div className="space-y-3">
-                <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-indigo-400/25 bg-indigo-500/15 text-indigo-300">
+                <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-(color:--c-accent)/25 bg-(color:--c-accent)/15 text-(color:--c-accent-d)">
                   <Mail className="h-5 w-5" aria-hidden="true" />
                 </div>
                 <div className="space-y-1">
-                  <h2 className="font-display text-lg font-semibold text-white">
-                    Email the instructor
+                  <h2 className="font-display text-lg font-semibold text-(color:--c-ink)">
+                    Email your instructor
                   </h2>
-                  <p className="text-sm text-slate-300 break-all">
+                  <p className="text-sm text-(color:--c-sub) break-all">
                     {BOOTSTRAPPED_ADMIN_EMAIL}
                   </p>
                 </div>
               </div>
               <a
                 href={`mailto:${BOOTSTRAPPED_ADMIN_EMAIL}`}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-400 transition-colors"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-(color:--c-accent) px-4 py-2.5 text-sm font-semibold text-white hover:bg-(color:--c-accent-d) transition-colors"
               >
                 <Mail className="h-4 w-4" aria-hidden="true" />
                 <span>Send Email</span>
@@ -50,17 +50,17 @@ export function ContactPage() {
             </div>
 
             {/* WhatsApp Card */}
-            <div className="rounded-2xl border border-white/[0.08] bg-[#11182E]/80 backdrop-blur-md p-6 flex flex-col justify-between gap-6 transition-all duration-200 hover:-translate-y-1 hover:border-white/15 hover:shadow-xl hover:shadow-black/30">
+            <div className="rounded-xl border border-(color:--c-ink)/[0.10] bg-(color:--c-surface) p-6 flex flex-col justify-between gap-6 transition-all duration-200 hover:-translate-y-1 hover:border-(color:--c-ink)/[0.10] ">
               <div className="space-y-3">
-                <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#25D366]/30 bg-[#25D366]/15 text-[#25D366]">
+                <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#25D366]/30 bg-[#25D366]/15 text-[#1E8E4B]">
                   <MessageCircle className="h-5 w-5" aria-hidden="true" />
                 </div>
                 <div className="space-y-1">
-                  <h2 className="font-display text-lg font-semibold text-white">
-                    WhatsApp the instructor
+                  <h2 className="font-display text-lg font-semibold text-(color:--c-ink)">
+                    WhatsApp your instructor
                   </h2>
-                  <p className="text-sm text-slate-300">
-                    Send your activity proof directly
+                  <p className="text-sm text-(color:--c-sub)">
+                    Send a photo or screenshot of your activity
                   </p>
                 </div>
               </div>

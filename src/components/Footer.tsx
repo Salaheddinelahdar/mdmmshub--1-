@@ -1,16 +1,16 @@
+import { Heart } from 'lucide-react';
+
 export function Footer() {
   return (
-    <footer className="border-t border-white/[0.08] bg-[#0A0F1E]">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 sm:py-5">
-        <div className="grid grid-cols-1 sm:grid-cols-3 items-center gap-2 text-xs text-slate-400">
-          <p className="text-center sm:text-left whitespace-nowrap">© 2026 MDMMS.space</p>
-          <p className="text-center text-slate-300">
-            Built for Marketing Digital Cohort — UCA
-          </p>
-          <p className="text-center sm:text-right whitespace-nowrap">
-            Created with ❤️ anonymously
-          </p>
-        </div>
+    <footer className="border-t border-(color:--c-ink)/10 bg-(color:--c-page)">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-(color:--c-muted)">
+        <p className="font-display text-base text-(color:--c-ink)">
+          MDMMS<span className="text-(color:--c-accent)">space</span>
+        </p>
+        <p className="text-center">Built for the Marketing Digital cohort, UCA</p>
+        <p className="inline-flex items-center gap-1.5">
+          Made with <Heart className="h-3.5 w-3.5 text-(color:--c-accent)" aria-hidden="true" /> anonymously
+        </p>
       </div>
     </footer>
   );

@@ -1,46 +1,50 @@
 @import "tailwindcss";
-@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   :root {
-    --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
-    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --c-ink: #1F1E1D; --c-ink2: #2B2A28; --c-sub: #4A4843; --c-muted: #6B6760; --c-faint: #8A857C;
+    --c-page: #F5F1EA; --c-surface: #FFFDF9; --c-soft: #F0EBE1;
+    --c-accent: #C96442; --c-accent-d: #B5522F;
+    --c-red: #B3392B; --c-green: #4D7C5A; --c-amber: #A8741A; --c-bronze: #A0522D;
+    --c-blue: #6B8EA8; --c-blue-d: #3F6783;
+    --c-line: rgba(31, 30, 29, 0.07);
+  }
+  .dark {
+    --c-ink: #F0EEE6; --c-ink2: #E3E0D6; --c-sub: #CFCBC0; --c-muted: #A8A398; --c-faint: #8F8A7F;
+    --c-page: #262624; --c-surface: #30302E; --c-soft: #3A3936;
+    --c-accent: #C96442; --c-accent-d: #E0845F;
+    --c-red: #E5776A; --c-green: #86B894; --c-amber: #D9A441; --c-bronze: #D98A5E;
+    --c-blue: #8FB3CE; --c-blue-d: #8FB3CE;
+    --c-line: rgba(240, 238, 230, 0.09);
+  }
+  :root {
+    --font-display: 'Newsreader', 'Source Serif 4', Georgia, 'Times New Roman', serif;
+    --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
   }
 
   body {
     font-family: var(--font-sans);
-    background-color: #0A0F1E;
-    color: #F1F5F9;
+    background-color: var(--c-page);
+    color: var(--c-ink);
     overflow-x: hidden;
   }
 
   h1, h2, h3, .font-display {
     font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.015em;
   }
 
+  /* serif headings look heavy at bold weights; keep them calm */
+  h1.font-bold, h2.font-bold, h3.font-bold, h1, h2 { font-weight: 500; }
+
   .font-mono-tabular {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-variant-numeric: tabular-nums;
   }
 }
 
-@keyframes rocketFloat {
-  0%, 100% {
-    transform: translateY(0px) rotate(-4deg);
-  }
-  50% {
-    transform: translateY(-3px) rotate(4deg);
-  }
-}
-
-.animate-rocket {
-  display: inline-block;
-  animation: rocketFloat 2.2s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-rocket {
-    animation: none;
-  }
-}
+.dark ::selection { background: rgba(201, 100, 66, 0.4); }
+.dark input, .dark select, .dark textarea { color-scheme: dark; }
+.dark img.avatar-photo { filter: none; }

@@ -34,6 +34,16 @@ service cloud.firestore {
       );
     }
 
+    function isApproved() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/students/$(request.auth.uid))
+        && get(/databases/$(database)/documents/students/$(request.auth.uid)).data.approved == true;
+    }
+
+    function isMember() {
+      return isApproved() || isAdmin();
+    }
+
     function isUcaEmail() {
       return isSignedIn()
         && request.auth.token.email is string
@@ -85,7 +95,8 @@ service cloud.firestore {
 
     function isValidExam(data) {
       return data.keys().hasAll(['id', 'name', 'seasonId', 'createdAt'])
-        && data.keys().hasOnly(['id', 'name', 'seasonId', 'createdAt'])
+        && data.keys().hasOnly(['id', 'name', 'seasonId', 'createdAt', 'examDate'])
+        && (!('examDate' in data) || (data.examDate is string && data.examDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')))
         && data.id is string && isValidId(data.id)
         && data.name is string && data.name.size() >= 2 && data.name.size() <= 100
         && data.seasonId is string && data.seasonId.size() >= 1 && data.seasonId.size() <= 64 && data.seasonId.matches('^[a-zA-Z0-9_\\-]+$')
@@ -131,8 +142,8 @@ service cloud.firestore {
 
     // Public Student Leaderboard Profiles (no PII)
     match /students/{studentId} {
-      allow get: if isValidId(studentId) && (existing().approved == true || isOwner(studentId) || isAdmin());
-      allow list: if resource.data.approved == true || isAdmin();
+      allow get: if isValidId(studentId) && ((existing().approved == true && isMember()) || isOwner(studentId) || isAdmin());
+      allow list: if (resource.data.approved == true && isMember()) || isAdmin();
       allow create: if isValidId(studentId)
         && isSignedIn()
         && isValidStudent(incoming())
@@ -180,23 +191,43 @@ service cloud.firestore {
 
     // Transparent public point logs
     match /point_logs/{logId} {
-      allow get: if isValidId(logId);
-      allow list: if true;
+      allow get: if isValidId(logId) && isMember();
+      allow list: if isMember();
+      function quizLogPrefix() {
+        return 'quizlog_' + request.auth.uid + '_';
+      }
+      function quizLogAttempt() {
+        return /databases/$(database)/documents/quiz_attempts/$(request.auth.uid + '_' + logId[quizLogPrefix().size():]);
+      }
+      // A student can only write the points of their own submitted quiz, equal to the attempt's points
+      function isOwnQuizLog() {
+        return isApproved()
+          && logId.size() > quizLogPrefix().size()
+          && logId[0:quizLogPrefix().size()] == quizLogPrefix()
+          && incoming().studentId == request.auth.uid
+          && incoming().action == 'Quiz challenge'
+          && incoming().note == ''
+          && incoming().points >= 0 && incoming().points <= 200
+          && getAfter(quizLogAttempt()).data.status == 'submitted'
+          && getAfter(quizLogAttempt()).data.points == incoming().points
+          && get(quizLogAttempt()).data.status == 'started'
+          && get(/databases/$(database)/documents/seasons/$(incoming().seasonId)).data.active == true;
+      }
       allow create: if isValidId(logId)
-        && isAdmin()
         && isValidPointLog(incoming())
         && incoming().id == logId
         && incoming().createdAt == request.time
+        && (isOwnQuizLog() || (isAdmin()
         && exists(/databases/$(database)/documents/students/$(incoming().studentId))
-        && exists(/databases/$(database)/documents/seasons/$(incoming().seasonId));
+        && exists(/databases/$(database)/documents/seasons/$(incoming().seasonId))));
       allow update: if false;
       allow delete: if isValidId(logId) && isAdmin();
     }
 
     // Academic Seasons
     match /seasons/{seasonId} {
-      allow get: if isValidId(seasonId);
-      allow list: if true;
+      allow get: if isValidId(seasonId) && isMember();
+      allow list: if isMember();
       allow create: if isValidId(seasonId)
         && isAdmin()
         && isValidSeason(incoming())
@@ -213,8 +244,8 @@ service cloud.firestore {
 
     // Exams
     match /exams/{examId} {
-      allow get: if isValidId(examId);
-      allow list: if true;
+      allow get: if isValidId(examId) && isAdmin();
+      allow list: if isAdmin();
       allow create: if isValidId(examId)
         && isAdmin()
         && isValidExam(incoming())
@@ -227,8 +258,8 @@ service cloud.firestore {
 
     // Exam Scores
     match /exam_scores/{scoreId} {
-      allow get: if isValidId(scoreId);
-      allow list: if true;
+      allow get: if isValidId(scoreId) && (isAdmin() || (isApproved() && resource.data.studentId == request.auth.uid));
+      allow list: if isAdmin() || (isApproved() && resource.data.studentId == request.auth.uid);
       allow create: if isValidId(scoreId)
         && isAdmin()
         && isValidExamScore(incoming())
@@ -242,8 +273,8 @@ service cloud.firestore {
 
     // Hall of Fame
     match /hall_of_fame/{entryId} {
-      allow get: if isValidId(entryId);
-      allow list: if true;
+      allow get: if isValidId(entryId) && isMember();
+      allow list: if isMember();
       allow create: if isValidId(entryId)
         && isAdmin()
         && isValidHallOfFame(incoming())
@@ -251,6 +282,81 @@ service cloud.firestore {
         && incoming().createdAt == request.time;
       allow update: if false;
       allow delete: if isValidId(entryId) && isAdmin();
+    }
+
+    // Weekly quiz, graded in the browser (Spark plan, no server).
+    // Limits: rules cannot recompute the score, so a determined student can claim a higher score.
+    match /quizzes/{quizId} {
+      allow get, list: if isMember();
+      allow create, update: if isValidId(quizId) && isAdmin()
+        && incoming().title is string && incoming().title.size() >= 2 && incoming().title.size() <= 100
+        && incoming().opensAt is timestamp && incoming().closesAt is timestamp
+        && incoming().closesAt > incoming().opensAt
+        && incoming().durationMin is number && incoming().durationMin >= 1 && incoming().durationMin <= 180
+        && incoming().questionCount is number && incoming().questionCount >= 1 && incoming().questionCount <= 100;
+      allow delete: if isAdmin();
+
+      // Questions include the correct answer. A student can read them only after
+      // their own attempt exists (they pressed Start inside the open window).
+      match /questions/{qid} {
+        allow read: if isAdmin()
+          || (isApproved() && exists(/databases/$(database)/documents/quiz_attempts/$(request.auth.uid + '_' + quizId)));
+        allow write: if isAdmin();
+      }
+    }
+
+    match /quiz_attempts/{attemptId} {
+      function quizOf(id) {
+        return get(/databases/$(database)/documents/quizzes/$(id)).data;
+      }
+      allow get: if isAdmin() || (isApproved() && (resource == null || resource.data.uid == request.auth.uid));
+      allow list: if isAdmin() || (isApproved() && resource.data.uid == request.auth.uid);
+
+      // Start: one document per student and quiz (id = uid_quizId), only inside the open window
+      allow create: if isApproved()
+        && incoming().keys().hasOnly(['quizId', 'uid', 'status', 'startedAt'])
+        && incoming().keys().hasAll(['quizId', 'uid', 'status', 'startedAt'])
+        && incoming().quizId is string && isValidId(incoming().quizId)
+        && attemptId == request.auth.uid + '_' + incoming().quizId
+        && incoming().uid == request.auth.uid
+        && incoming().status == 'started'
+        && incoming().startedAt == request.time
+        && exists(/databases/$(database)/documents/quizzes/$(incoming().quizId))
+        && quizOf(incoming().quizId).opensAt <= request.time
+        && request.time <= quizOf(incoming().quizId).closesAt;
+
+      allow update: if isApproved()
+        && resource.data.uid == request.auth.uid
+        && resource.data.status == 'started'
+        && incoming().uid == resource.data.uid
+        && incoming().quizId == resource.data.quizId
+        && incoming().startedAt == resource.data.startedAt
+        && (
+          // 1) save the chosen questions and their shuffled order, once
+          (
+            !('qids' in resource.data)
+            && incoming().diff(resource.data).affectedKeys().hasOnly(['qids', 'orders'])
+            && incoming().qids is list && incoming().qids.size() >= 1 && incoming().qids.size() <= 100
+            && incoming().orders is map
+            && incoming().status == 'started'
+          )
+          ||
+          // 2) submit once, inside the timer, together with the matching point log
+          (
+            'qids' in resource.data
+            && incoming().diff(resource.data).affectedKeys().hasOnly(['status', 'submittedAt', 'score', 'total', 'points', 'answers', 'results'])
+            && incoming().status == 'submitted'
+            && incoming().submittedAt == request.time
+            && request.time <= resource.data.startedAt + duration.value(quizOf(resource.data.quizId).durationMin, 'm') + duration.value(20, 's')
+            && request.time <= quizOf(resource.data.quizId).closesAt + duration.value(20, 's')
+            && incoming().total == resource.data.qids.size()
+            && incoming().score is int && incoming().score >= 0 && incoming().score <= incoming().total
+            && incoming().points == math.round(incoming().score * 200 / incoming().total)
+            && incoming().answers is map && incoming().results is map
+            && existsAfter(/databases/$(database)/documents/point_logs/$('quizlog_' + request.auth.uid + '_' + resource.data.quizId))
+          )
+        );
+      allow delete: if isAdmin();
     }
   }
 }

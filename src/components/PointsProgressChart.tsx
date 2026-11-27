@@ -39,14 +39,14 @@ function CustomProgressTooltip({ active, payload }: CustomTooltipProps) {
 
   if (point.actions.length === 1) {
     return (
-      <div className="rounded-xl border border-white/15 bg-[#0A0F1E]/95 backdrop-blur-md px-3 py-2 shadow-xl shadow-black/40 max-w-[280px]">
-        <p className="text-xs font-medium text-white leading-snug">
-          <span className="text-slate-400 font-mono-tabular">{point.dateLabel}</span>
-          <span className="text-slate-500"> · </span>
-          <span className={`font-mono-tabular font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+      <div className="rounded-xl border border-(color:--c-ink)/[0.10] bg-(color:--c-surface) px-3 py-2 shadow-sm shadow-sm max-w-[280px]">
+        <p className="text-xs font-medium text-(color:--c-ink) leading-snug">
+          <span className="text-(color:--c-muted) font-mono-tabular">{point.dateLabel}</span>
+          <span className="text-(color:--c-faint)"> · </span>
+          <span className={`font-mono-tabular font-bold ${isPositive ? 'text-(color:--c-green)' : 'text-(color:--c-red)'}`}>
             {formatSignedPoints(point.dayPoints)}
           </span>
-          <span className="text-slate-500"> · </span>
+          <span className="text-(color:--c-faint)"> · </span>
           <span>{point.actions[0].action}</span>
         </p>
       </div>
@@ -54,21 +54,21 @@ function CustomProgressTooltip({ active, payload }: CustomTooltipProps) {
   }
 
   return (
-    <div className="rounded-xl border border-white/15 bg-[#0A0F1E]/95 backdrop-blur-md px-3 py-2 shadow-xl shadow-black/40 max-w-[280px] space-y-1">
-      <p className="text-xs font-medium text-white">
-        <span className="text-slate-400 font-mono-tabular">{point.dateLabel}</span>
-        <span className="text-slate-500"> · </span>
-        <span className={`font-mono-tabular font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+    <div className="rounded-xl border border-(color:--c-ink)/[0.10] bg-(color:--c-surface) px-3 py-2 shadow-sm shadow-sm max-w-[280px] space-y-1">
+      <p className="text-xs font-medium text-(color:--c-ink)">
+        <span className="text-(color:--c-muted) font-mono-tabular">{point.dateLabel}</span>
+        <span className="text-(color:--c-faint)"> · </span>
+        <span className={`font-mono-tabular font-bold ${isPositive ? 'text-(color:--c-green)' : 'text-(color:--c-red)'}`}>
           {formatSignedPoints(point.dayPoints)}
         </span>
       </p>
-      <ul className="space-y-0.5 text-[11px] text-slate-300">
+      <ul className="space-y-0.5 text-[11px] text-(color:--c-sub)">
         {point.actions.map((item) => (
           <li key={item.id} className="flex items-center justify-between gap-3">
             <span className="truncate">{item.action}</span>
             <span
               className={`font-mono-tabular font-semibold shrink-0 ${
-                item.points >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                item.points >= 0 ? 'text-(color:--c-green)' : 'text-(color:--c-red)'
               }`}
             >
               {formatSignedPoints(item.points)}
@@ -125,7 +125,7 @@ function LevelYAxisTick({ x = 0, y = 0, payload }: LevelYAxisTickProps) {
       y={Number(y)}
       dy={3.5}
       textAnchor="end"
-      fill="#94A3B8"
+      fill="#8A857C"
       fontSize={11}
       fontWeight={500}
     >
@@ -152,11 +152,11 @@ export function PointsProgressChart({ logs }: { logs: PointLog[] }) {
 
   return (
     <section aria-labelledby="my-progress-heading" className="space-y-3">
-      <h2 id="my-progress-heading" className="font-display text-lg sm:text-xl font-bold text-white">
+      <h2 id="my-progress-heading" className="font-display text-lg sm:text-xl font-bold text-(color:--c-ink)">
         My Progress
       </h2>
 
-      <div className="rounded-2xl border border-white/[0.08] bg-[#11182E]/80 backdrop-blur-md p-3 sm:p-5">
+      <div className="rounded-xl border border-(color:--c-ink)/[0.10] bg-(color:--c-surface) p-3 sm:p-5">
         <div className="relative h-[220px] sm:h-[260px] w-full">
           <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 760, height: 250 }}>
             <AreaChart
@@ -165,16 +165,16 @@ export function PointsProgressChart({ logs }: { logs: PointLog[] }) {
             >
               <defs>
                 <linearGradient id="progressAreaFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#6366F1" stopOpacity={0.15} />
-                  <stop offset="100%" stopColor="#6366F1" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#C96442" stopOpacity={0.15} />
+                  <stop offset="100%" stopColor="#C96442" stopOpacity={0} />
                 </linearGradient>
                 <filter id="indigoVioletGlow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#8B5CF6" floodOpacity="0.65" />
+                  <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#B5522F" floodOpacity="0.65" />
                 </filter>
               </defs>
 
               <CartesianGrid
-                stroke="rgba(255, 255, 255, 0.04)"
+                stroke="var(--c-line)"
                 strokeDasharray="3 3"
                 vertical={false}
               />
@@ -182,8 +182,8 @@ export function PointsProgressChart({ logs }: { logs: PointLog[] }) {
               <XAxis
                 dataKey="key"
                 tickFormatter={(key: string) => pointByKey.get(key)?.dateLabel ?? ''}
-                tick={{ fill: '#94A3B8', fontSize: 11 }}
-                axisLine={{ stroke: 'rgba(255, 255, 255, 0.1)' }}
+                tick={{ fill: '#8A857C', fontSize: 11 }}
+                axisLine={{ stroke: 'var(--c-line)' }}
                 tickLine={false}
                 minTickGap={24}
               />
@@ -200,7 +200,7 @@ export function PointsProgressChart({ logs }: { logs: PointLog[] }) {
               {isEmpty && (
                 <ReferenceLine
                   y={0}
-                  stroke="#6366F1"
+                  stroke="#C96442"
                   strokeDasharray="6 6"
                   strokeOpacity={0.75}
                 />
@@ -226,7 +226,7 @@ export function PointsProgressChart({ logs }: { logs: PointLog[] }) {
               <Area
                 type="monotone"
                 dataKey="cumulativePoints"
-                stroke="#6366F1"
+                stroke="#C96442"
                 strokeWidth={isEmpty ? 0 : 2.5}
                 strokeOpacity={isEmpty ? 0 : 1}
                 filter={isEmpty ? undefined : 'url(#indigoVioletGlow)'}
@@ -236,8 +236,8 @@ export function PointsProgressChart({ logs }: { logs: PointLog[] }) {
                     ? false
                     : {
                         r: 4,
-                        fill: '#6366F1',
-                        stroke: '#C4B5FD',
+                        fill: '#C96442',
+                        stroke: 'var(--c-surface)',
                         strokeWidth: 2,
                       }
                 }
@@ -246,8 +246,8 @@ export function PointsProgressChart({ logs }: { logs: PointLog[] }) {
                     ? false
                     : {
                         r: 6,
-                        fill: '#8B5CF6',
-                        stroke: '#FFFFFF',
+                        fill: '#B5522F',
+                        stroke: 'var(--c-surface)',
                         strokeWidth: 2,
                       }
                 }
@@ -258,7 +258,7 @@ export function PointsProgressChart({ logs }: { logs: PointLog[] }) {
 
           {isEmpty && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center pl-[74px] pr-3 pb-5">
-              <p className="rounded-xl border border-white/[0.08] bg-[#0A0F1E]/92 backdrop-blur-sm px-3.5 py-2 text-center text-xs sm:text-sm text-slate-300 shadow-lg shadow-black/30 max-w-[260px] sm:max-w-sm">
+              <p className="rounded-xl border border-(color:--c-ink)/[0.10] bg-(color:--c-surface) backdrop-blur-sm px-3.5 py-2 text-center text-xs sm:text-sm text-(color:--c-sub) shadow-lg shadow-sm max-w-[260px] sm:max-w-sm">
                 Your progress will appear here once you earn your first points
               </p>
             </div>

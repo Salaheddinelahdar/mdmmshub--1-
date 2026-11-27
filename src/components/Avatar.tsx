@@ -15,11 +15,11 @@ const SIZE_CLASSES: Record<NonNullable<AvatarProps['size']>, string> = {
 };
 
 const PALETTES = [
-  'bg-indigo-500/20 text-indigo-200 border-indigo-400/30',
-  'bg-sky-500/20 text-sky-200 border-sky-400/30',
-  'bg-emerald-500/20 text-emerald-200 border-emerald-400/30',
-  'bg-violet-500/20 text-violet-200 border-violet-400/30',
-  'bg-amber-500/20 text-amber-200 border-amber-400/30',
+  'bg-(color:--c-accent)/20 text-(color:--c-accent-d) border-(color:--c-accent)/30',
+  'bg-(color:--c-blue)/15 text-(color:--c-blue-d) border-(color:--c-blue)/30',
+  'bg-emerald-500/20 text-(color:--c-green) border-emerald-400/30',
+  'bg-(color:--c-accent)/20 text-(color:--c-accent-d) border-(color:--c-accent)/30',
+  'bg-amber-500/20 text-(color:--c-amber) border-amber-400/30',
 ];
 
 function getInitials(name: string): string {
@@ -48,7 +48,7 @@ export function Avatar({ name, src, size = 'md', className = '' }: AvatarProps) 
         alt={`${name} profile photo`}
         referrerPolicy="no-referrer"
         onError={() => setFailed(true)}
-        className={`${sizeCls} rounded-full object-cover border border-white/10 shrink-0 bg-slate-800 ${className}`}
+        className={`${sizeCls} rounded-full object-cover border border-(color:--c-ink)/[0.10] shrink-0 bg-(color:--c-soft) ${className}`}
       />
     );
   }

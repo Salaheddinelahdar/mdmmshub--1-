@@ -28,23 +28,6 @@ export interface Season {
   createdAt: number;
 }
 
-export interface Exam {
-  id: string;
-  name: string;
-  seasonId: string;
-  createdAt: number;
-}
-
-export interface ExamScore {
-  id: string;
-  studentId: string;
-  examId: string;
-  seasonId: string;
-  score: number;
-  pointsAwarded: number;
-  createdAt: number;
-}
-
 export interface HallOfFameEntry {
   id: string;
   seasonId: string;
@@ -72,7 +55,7 @@ export interface StudentLevel {
   nextLevelPoints: number | null;
 }
 
-export type PointActionFrequency = 'repeatable' | 'once_per_student' | 'once_per_club' | 'per_exam' | 'manual';
+export type PointActionFrequency = 'repeatable' | 'once_per_student' | 'once_per_club' | 'weekly_quiz' | 'manual';
 
 export interface PointActionDefinition {
   id: string;

@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+import { Trophy } from 'lucide-react';
 import { getCountdownParts } from '../lib/leaderboard';
 
 interface WeeklyWinnersCountdownProps {
@@ -18,26 +19,24 @@ export function WeeklyWinnersCountdown({ remainingMs }: WeeklyWinnersCountdownPr
   return (
     <motion.section
       key="weekly-winners-countdown"
-      aria-label="First Weekly Winners Reveal Countdown"
+      aria-label="First weekly winners reveal Countdown"
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
       transition={{ duration: 0.35, ease: 'easeOut' }}
     >
       {/* Countdown Card */}
-      <div className="rounded-2xl border border-white/[0.08] bg-[#11182E]/75 backdrop-blur-md p-6 sm:p-8 text-center space-y-6">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-400/25 bg-amber-500/10 shadow-[0_0_32px_-4px_rgba(245,158,11,0.45)]">
-          <span className="text-3xl leading-none" aria-hidden="true">
-            🏆
-          </span>
+      <div className="rounded-xl border border-(color:--c-ink)/[0.10] bg-(color:--c-surface) p-6 sm:p-8 text-center space-y-6">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-xl border border-amber-400/25 bg-amber-500/10 shadow-sm">
+          <Trophy className="h-7 w-7 text-(color:--c-accent-d)" strokeWidth={1.75} aria-hidden="true" />
         </div>
 
         <div className="space-y-2 max-w-xl mx-auto">
-          <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-white [text-wrap:balance]">
-            First Weekly Winners Reveal
+          <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-(color:--c-ink) [text-wrap:balance]">
+            First weekly winners reveal
           </h2>
-          <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
-            Earn points this week to claim your spot in the first Top 3 reveal
+          <p className="text-sm sm:text-base text-(color:--c-sub) leading-relaxed">
+            Earn points this week to claim a spot in the first top 3
           </p>
         </div>
 
@@ -50,17 +49,17 @@ export function WeeklyWinnersCountdown({ remainingMs }: WeeklyWinnersCountdownPr
           {units.map((unit, idx) => (
             <div key={unit.label} className="contents">
               <div className="flex flex-col items-center min-w-0 sm:min-w-[4.5rem]">
-                <span className="font-mono-tabular text-3xl sm:text-5xl font-bold tracking-tight text-[#6366F1]">
+                <span className="font-mono-tabular text-3xl sm:text-5xl font-bold tracking-tight text-(color:--c-accent)">
                   {unit.value}
                 </span>
-                <span className="text-[11px] sm:text-xs font-medium text-slate-400 mt-1">
+                <span className="text-[11px] sm:text-xs font-medium text-(color:--c-muted) mt-1">
                   {unit.label}
                 </span>
               </div>
               {idx < units.length - 1 && (
                 <span
                   aria-hidden="true"
-                  className="hidden sm:inline-block text-2xl font-bold text-slate-600 -mt-5 select-none"
+                  className="hidden sm:inline-block text-2xl font-bold text-(color:--c-faint) -mt-5 select-none"
                 >
                   ·
                 </span>
@@ -69,7 +68,7 @@ export function WeeklyWinnersCountdown({ remainingMs }: WeeklyWinnersCountdownPr
           ))}
         </div>
 
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-(color:--c-muted)">
           Reveals Monday at 00:01 (Morocco time · Africa/Casablanca)
         </p>
       </div>

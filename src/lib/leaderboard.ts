@@ -47,11 +47,11 @@ export const POINT_ACTIONS: PointActionDefinition[] = [
     description: 'Became an active member of a university marketing or tech club.',
   },
   {
-    id: 'exam_score',
-    label: 'Exam score',
+    id: 'quiz_challenge',
+    label: 'Quiz challenge',
     points: 0,
-    frequency: 'per_exam',
-    description: 'Calculated automatically as score × 10 points.',
+    frequency: 'weekly_quiz',
+    description: 'Quiz scored out of 20. Each quiz point is worth 10 points (max 200). One quiz award per student per week.',
   },
   {
     id: 'absent_unexcused',
@@ -80,11 +80,15 @@ export function getActionDefinition(actionId: string): PointActionDefinition | u
   return POINT_ACTIONS.find((a) => a.id === actionId || a.label === actionId);
 }
 
-export function calculateExamPoints(score: number): number {
-  if (!Number.isFinite(score) || score < 0 || score > 20) {
-    throw new Error('Exam score must be between 0 and 20.');
+export const QUIZ_MAX_SCORE = 20;
+export const QUIZ_POINT_VALUE = 10;
+const WEEK_MS_LIMIT = 7 * 24 * 60 * 60 * 1000;
+
+export function calculateQuizPoints(score: number): number {
+  if (!Number.isFinite(score) || score < 0 || score > QUIZ_MAX_SCORE) {
+    throw new Error(`Quiz score must be between 0 and ${QUIZ_MAX_SCORE}.`);
   }
-  return Math.round(score * 10);
+  return Math.round(score * QUIZ_POINT_VALUE);
 }
 
 export function normalizeClubNote(clubName: string): string {
@@ -94,7 +98,8 @@ export function normalizeClubNote(clubName: string): string {
 export function canClaimAction(
   actionId: string,
   studentLogs: PointLog[],
-  clubName?: string
+  clubName?: string,
+  nowMs: number = Date.now()
 ): { allowed: boolean; reason?: string } {
   const def = getActionDefinition(actionId);
   if (!def) {
@@ -107,6 +112,19 @@ export function canClaimAction(
       return {
         allowed: false,
         reason: `"${def.label}" can only be awarded once per student.`,
+      };
+    }
+  }
+
+  if (def.frequency === 'weekly_quiz') {
+    const last = studentLogs
+      .filter((log) => log.action === def.label && log.createdAt > nowMs - WEEK_MS_LIMIT)
+      .sort((a, b) => b.createdAt - a.createdAt)[0];
+    if (last) {
+      const next = new Date(last.createdAt + WEEK_MS_LIMIT).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      return {
+        allowed: false,
+        reason: `This student already got a Quiz challenge award in the last 7 days. The next one can be awarded from ${next}.`,
       };
     }
   }
@@ -274,7 +292,7 @@ export function categorizePointActions(
   manual: PointActionDefinition[];
 } {
   return {
-    earning: actions.filter((a) => a.points > 0 || a.frequency === 'per_exam'),
+    earning: actions.filter((a) => a.points > 0 || a.frequency === 'weekly_quiz'),
     penalties: actions.filter((a) => a.points < 0),
     manual: actions.filter((a) => a.frequency === 'manual'),
   };
@@ -288,8 +306,8 @@ export function formatActionFrequency(frequency: PointActionDefinition['frequenc
       return 'Once per student';
     case 'once_per_club':
       return 'Once per club';
-    case 'per_exam':
-      return 'Per exam';
+    case 'weekly_quiz':
+      return 'Once a week';
     case 'manual':
       return 'Instructor discretion';
   }
@@ -483,10 +501,10 @@ export const LEVEL_CHART_MARKERS: Array<{
   shortLabel: string;
   color: string;
 }> = [
-  { points: 50, icon: '🌱', shortLabel: '🌱 50', color: '#94A3B8' },
-  { points: 150, icon: '📚', shortLabel: '📚 150', color: '#818CF8' },
-  { points: 300, icon: '⚡', shortLabel: '⚡ 300', color: '#A78BFA' },
-  { points: 500, icon: '🔥', shortLabel: '🔥 500', color: '#FBBF24' },
+  { points: 50, icon: '🌱', shortLabel: '50', color: '#8A857C' },
+  { points: 150, icon: '📚', shortLabel: '150', color: '#C96442' },
+  { points: 300, icon: '⚡', shortLabel: '300', color: '#B5522F' },
+  { points: 500, icon: '🔥', shortLabel: '500', color: '#A8741A' },
 ];
 
 const shortDateFmt = new Intl.DateTimeFormat('en-US', {

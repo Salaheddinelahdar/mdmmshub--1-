@@ -25,7 +25,9 @@ export function AnimatedNumber({
       typeof window !== 'undefined' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    if (prefersReduced) {
+    const smallScreen = typeof window !== 'undefined' && window.innerWidth < 640;
+
+    if (prefersReduced || smallScreen) {
       setDisplay(endVal);
       prevValueRef.current = endVal;
       return;
@@ -57,7 +59,7 @@ export function AnimatedNumber({
     <span className={`inline-flex items-baseline gap-1 ${className}`}>
       <span className="font-mono-tabular">{display.toLocaleString()}</span>
       {cleanSuffix && (
-        <span className="text-[0.72em] font-sans font-medium text-slate-400">
+        <span className="text-[0.72em] font-sans font-medium text-(color:--c-muted)">
           {cleanSuffix}
         </span>
       )}

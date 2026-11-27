@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {
   buildHallOfFameTop3,
   buildStudentProgressSeries,
-  calculateExamPoints,
   canClaimAction,
+  calculateQuizPoints,
   casablancaWallTimeToUtcMs,
   categorizePointActions,
   computeLeaderboard,
@@ -40,7 +40,7 @@ const sampleLogs: PointLog[] = [
   { id: 'l2', studentId: 's1', seasonId: 'fall-2026', action: '100% attendance that week', points: 10, note: 'Week 4', createdAt: NOW - 2 * DAY },
   { id: 'l3', studentId: 's2', seasonId: 'fall-2026', action: 'Joined a club', points: 30, note: 'Digital Marketers Club', createdAt: NOW - 3 * DAY },
   { id: 'l4', studentId: 's2', seasonId: 'fall-2026', action: 'Absent without reason', points: -5, note: 'Missed Tuesday workshop', createdAt: NOW - 1 * DAY },
-  { id: 'l5', studentId: 's3', seasonId: 'fall-2026', action: 'Exam score', points: 160, note: 'Midterm (16/20)', createdAt: NOW - 12 * DAY },
+  { id: 'l5', studentId: 's3', seasonId: 'fall-2026', action: 'Quiz challenge', points: 160, note: 'Midterm (16/20)', createdAt: NOW - 12 * DAY },
   { id: 'l6', studentId: 's4', seasonId: 'fall-2026', action: 'Present in front of class', points: 15, note: 'Ignored because unapproved', createdAt: NOW - 1 * DAY },
 ];
 
@@ -87,6 +87,18 @@ test('computeNextRankGap computes motivational gap line accurately', () => {
   assert.equal(gapSecond.message, 'You are 135 points away from rank #1');
 });
 
+test('quiz points = score x 10, max 200, one award per 7 days', () => {
+  assert.equal(calculateQuizPoints(14), 140);
+  assert.equal(calculateQuizPoints(20), 200);
+  assert.throws(() => calculateQuizPoints(21));
+  assert.throws(() => calculateQuizPoints(-1));
+  const now = Date.now();
+  const mk = (daysAgo: number) => [{ id: 'q', studentId: 's1', seasonId: 'x', action: 'Quiz challenge', points: 140, note: '', createdAt: now - daysAgo * 86400000 }];
+  assert.equal(canClaimAction('quiz_challenge', mk(2), undefined, now).allowed, false);
+  assert.equal(canClaimAction('quiz_challenge', mk(8), undefined, now).allowed, true);
+  assert.equal(canClaimAction('quiz_challenge', [], undefined, now).allowed, true);
+});
+
 test('canClaimAction enforces once_per_student for LinkedIn and once_per_club for clubs', () => {
   const logs: PointLog[] = [
     { id: 'a', studentId: 's1', seasonId: 'fall-2026', action: 'LinkedIn profile completed & active', points: 20, note: '', createdAt: NOW },
@@ -99,11 +111,6 @@ test('canClaimAction enforces once_per_student for LinkedIn and once_per_club fo
   assert.equal(canClaimAction('present_class', logs).allowed, true);
 });
 
-test('calculateExamPoints multiplies score by 10 and validates range', () => {
-  assert.equal(calculateExamPoints(17.5), 175);
-  assert.throws(() => calculateExamPoints(-1));
-  assert.throws(() => calculateExamPoints(21));
-});
 
 test('buildHallOfFameTop3 archives top 3 and filterRankedStudents matches case-insensitively', () => {
   const ranked = computeLeaderboard(sampleStudents, sampleLogs, 'fall-2026', NOW);
@@ -171,7 +178,7 @@ test('categorizePointActions partitions all POINT_ACTIONS without omitting entri
     grouped.earning.length + grouped.penalties.length + grouped.manual.length;
   assert.equal(totalCategorized, POINT_ACTIONS.length);
   assert.ok(grouped.earning.some((a) => a.id === 'present_class' && a.points === 15));
-  assert.ok(grouped.earning.some((a) => a.id === 'exam_score' && a.frequency === 'per_exam'));
+  assert.ok(grouped.earning.some((a) => a.id === 'quiz_challenge'));
   assert.ok(grouped.penalties.every((a) => a.points < 0));
   assert.equal(grouped.penalties.length, 2);
   assert.equal(grouped.manual.length, 1);
@@ -180,7 +187,6 @@ test('categorizePointActions partitions all POINT_ACTIONS without omitting entri
 
 test('formatActionFrequency and formatLevelRange return clean readable labels', () => {
   assert.equal(formatActionFrequency('once_per_club'), 'Once per club');
-  assert.equal(formatActionFrequency('per_exam'), 'Per exam');
   assert.equal(formatLevelRange(STUDENT_LEVELS[0]), '0 – 49 pts');
   assert.equal(formatLevelRange(STUDENT_LEVELS[3]), '300 – 499 pts');
   assert.equal(formatLevelRange(STUDENT_LEVELS[4]), '500+ pts');
@@ -286,7 +292,7 @@ test('buildStudentProgressSeries merges same-day entries and tracks cumulative t
   assert.ok(maxY >= 560);
 
   const highSeries = buildStudentProgressSeries([
-    { id: 'h1', studentId: 's1', seasonId: 'fall-2026', action: 'Exam score', points: 620, note: '', createdAt: NOW },
+    { id: 'h1', studentId: 's1', seasonId: 'fall-2026', action: 'Quiz challenge', points: 620, note: '', createdAt: NOW },
   ]);
   assert.deepEqual(getProgressChartDomain(highSeries), [0, 700]);
 });
@@ -320,4 +326,14 @@ test('groupLogsByDay groups same-day logs in descending date order with accurate
   assert.equal(grouped[2].dateLabel, 'Nov 15, 2026');
   assert.equal(grouped[2].items.length, 1);
   assert.equal(grouped[2].dayTotal, 15);
+});
+
+test('quiz scores are private and legacy exam logs are detected', async () => {
+  const { visibleNote, isLegacyExamLog } = await import('./quiz');
+  const q = { id: 'q', studentId: 's1', seasonId: 'x', action: 'Quiz challenge', points: 140, note: 'Quiz (14/20)', createdAt: 1 };
+  assert.equal(visibleNote(q, false), '');
+  assert.equal(visibleNote(q, true), '');
+  assert.equal(visibleNote({ ...q, note: 'good work' }, true), 'good work');
+  assert.equal(isLegacyExamLog({ ...q, action: 'Exam score' }), true);
+  assert.equal(isLegacyExamLog(q), false);
 });

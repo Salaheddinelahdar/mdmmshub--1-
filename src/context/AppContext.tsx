@@ -29,17 +29,15 @@ import {
 } from '../lib/firebase';
 import {
   buildHallOfFameTop3,
-  calculateExamPoints,
   canClaimAction,
+  calculateQuizPoints,
   computeLeaderboard,
   findWeeklyMvp,
   getActionDefinition,
 } from '../lib/leaderboard';
-import { createSampleDataset } from '../lib/seedData';
+import { isLegacyExamLog } from '../lib/quiz';
 import type {
   AuthSession,
-  Exam,
-  ExamScore,
   HallOfFameEntry,
   PointLog,
   RankedStudent,
@@ -68,23 +66,21 @@ interface AddPointsPayload {
   actionId: string;
   note: string;
   clubName?: string;
-  examId?: string;
-  examScore?: number;
   customPoints?: number;
+  quizScore?: number;
 }
 
 export interface AppContextValue {
   pathname: string;
   navigate: (to: string) => void;
   loading: boolean;
+  authReady: boolean;
   error: string | null;
   clearError: () => void;
   session: AuthSession | null;
   students: StudentProfile[];
   logs: PointLog[];
   seasons: Season[];
-  exams: Exam[];
-  examScores: ExamScore[];
   hallOfFame: HallOfFameEntry[];
   selectedSeasonId: string;
   setSelectedSeasonId: (id: string) => void;
@@ -102,10 +98,10 @@ export interface AppContextValue {
   ) => Promise<{ ok: boolean; error?: string }>;
   updateOwnPhoto: (photoUrl: string) => Promise<{ ok: boolean; error?: string }>;
   deleteStudent: (studentId: string) => Promise<{ ok: boolean; error?: string }>;
+  getLegacyExamSummary: () => Promise<{ logs: number; exams: number; scores: number }>;
+  clearLegacyExamData: () => Promise<{ ok: boolean; deleted?: { logs: number; exams: number; scores: number }; error?: string }>;
   awardPoints: (payload: AddPointsPayload) => Promise<{ ok: boolean; error?: string }>;
-  createExam: (name: string, seasonId: string) => Promise<{ ok: boolean; error?: string }>;
   createAndResetSeason: (name: string, startDate: string, endDate: string) => Promise<{ ok: boolean; error?: string }>;
-  seedFirestoreCohort: () => Promise<{ ok: boolean; error?: string }>;
 }
 
 export const AppContext = createContext<AppContextValue | null>(null);
@@ -113,6 +109,7 @@ export const AppContext = createContext<AppContextValue | null>(null);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [pathname, setPathname] = useState<string>(() => window.location.pathname || '/');
   const [loading, setLoading] = useState<boolean>(true);
+  const [authReady, setAuthReady] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   // Live Firestore state
@@ -120,8 +117,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [fsOwnStudent, setFsOwnStudent] = useState<StudentProfile | null>(null);
   const [fsLogs, setFsLogs] = useState<PointLog[]>([]);
   const [fsSeasons, setFsSeasons] = useState<Season[]>([]);
-  const [fsExams, setFsExams] = useState<Exam[]>([]);
-  const [fsExamScores, setFsExamScores] = useState<ExamScore[]>([]);
   const [fsHallOfFame, setFsHallOfFame] = useState<HallOfFameEntry[]>([]);
 
   const [firebaseSession, setFirebaseSession] = useState<AuthSession | null>(null);
@@ -149,6 +144,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!user) {
         setFirebaseSession(null);
         setFsOwnStudent(null);
+        setAuthReady(true);
         return;
       }
 
@@ -191,16 +187,55 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         approved: isAdmin ? true : Boolean(studentProfile?.approved),
         photoUrl: studentProfile?.photoUrl || user.photoURL || '',
       });
+      setAuthReady(true);
     });
 
     return () => unsub();
   }, []);
 
+  const [fsPrivateUsers, setFsPrivateUsers] = useState<{ uid: string; email: string; createdAt: number }[]>([]);
   const session = firebaseSession;
   const isAdminSession = session?.role === 'admin';
 
-  // Real-time Firestore listeners
+  // Live watch of the signed-in student's own profile, so approval applies without a reload
+  const sessionUid = session?.uid;
   useEffect(() => {
+    if (!sessionUid || isAdminSession) return;
+    const unsub = onSnapshot(
+      doc(db, 'students', sessionUid),
+      (snap) => {
+        const approved = snap.exists() ? Boolean(snap.data().approved) : false;
+        setFirebaseSession((prev) => (prev && prev.uid === sessionUid && prev.approved !== approved ? { ...prev, approved } : prev));
+        if (snap.exists()) {
+          const d = snap.data();
+          setFsOwnStudent({
+            id: String(d.id || sessionUid),
+            name: String(d.name || ''),
+            photoUrl: String(d.photoUrl || ''),
+            role: 'student',
+            approved,
+            createdAt: tsToMs(d.createdAt),
+          });
+        }
+      },
+      () => {}
+    );
+    return unsub;
+  }, [sessionUid, isAdminSession]);
+
+  const canReadData = Boolean(session && (isAdminSession || session.approved));
+
+  // Real-time Firestore listeners (only for approved students and admins)
+  useEffect(() => {
+    if (!canReadData) {
+      setFsStudents([]);
+      setFsLogs([]);
+      setFsSeasons([]);
+      setFsHallOfFame([]);
+      setFsPrivateUsers([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const studentsQuery = isAdminSession
       ? collection(db, 'students')
@@ -228,6 +263,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       }
     );
+
+    let unsubPriv: () => void = () => {};
+    if (isAdminSession) {
+      unsubPriv = onSnapshot(
+        collection(db, 'users_private'),
+        (snap) => {
+          setFsPrivateUsers(
+            snap.docs
+              .filter((d) => String(d.data().role || 'student') === 'student')
+              .map((d) => ({ uid: d.id, email: String(d.data().email || ''), createdAt: tsToMs(d.data().createdAt) }))
+          );
+        },
+        (err) => console.error('Private users subscription error:', err)
+      );
+    } else {
+      setFsPrivateUsers([]);
+    }
 
     const unsubLogs = onSnapshot(
       collection(db, 'point_logs'),
@@ -269,43 +321,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       (err) => console.error('Seasons subscription error:', err)
     );
 
-    const unsubExams = onSnapshot(
-      collection(db, 'exams'),
-      (snap) => {
-        const list: Exam[] = snap.docs.map((d) => {
-          const data = d.data();
-          return {
-            id: String(data.id || d.id),
-            name: String(data.name || ''),
-            seasonId: String(data.seasonId || ''),
-            createdAt: tsToMs(data.createdAt),
-          };
-        });
-        setFsExams(list);
-      },
-      (err) => console.error('Exams subscription error:', err)
-    );
-
-    const unsubExamScores = onSnapshot(
-      collection(db, 'exam_scores'),
-      (snap) => {
-        const list: ExamScore[] = snap.docs.map((d) => {
-          const data = d.data();
-          return {
-            id: String(data.id || d.id),
-            studentId: String(data.studentId || ''),
-            examId: String(data.examId || ''),
-            seasonId: String(data.seasonId || ''),
-            score: Number(data.score || 0),
-            pointsAwarded: Number(data.pointsAwarded || 0),
-            createdAt: tsToMs(data.createdAt),
-          };
-        });
-        setFsExamScores(list);
-      },
-      (err) => console.error('Exam scores subscription error:', err)
-    );
-
     const unsubHof = onSnapshot(
       collection(db, 'hall_of_fame'),
       (snap) => {
@@ -330,13 +345,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       unsubStudents();
+      unsubPriv();
       unsubLogs();
       unsubSeasons();
-      unsubExams();
-      unsubExamScores();
       unsubHof();
     };
-  }, [isAdminSession]);
+  }, [isAdminSession, canReadData]);
 
   // Combine live vs preview data
   const mergedFsStudents = useMemo(() => {
@@ -346,10 +360,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [fsStudents, fsOwnStudent]);
 
   const students = mergedFsStudents;
-  const logs = fsLogs;
+  const logs = useMemo(() => fsLogs.filter((l) => !isLegacyExamLog(l)), [fsLogs]);
+  const legacyExamLogs = useMemo(() => fsLogs.filter(isLegacyExamLog), [fsLogs]);
   const seasons = fsSeasons;
-  const exams = fsExams;
-  const examScores = fsExamScores;
   const hallOfFame = fsHallOfFame;
 
   // Keep selectedSeasonId aligned with the single active season by default
@@ -369,10 +382,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const weeklyMvp = useMemo(() => findWeeklyMvp(rankedStudents), [rankedStudents]);
 
-  const pendingStudents = useMemo(
-    () => students.filter((s) => !s.approved).sort((a, b) => b.createdAt - a.createdAt),
-    [students]
-  );
+  const pendingStudents = useMemo(() => {
+    const known = new Set(students.map((s) => s.id));
+    // Accounts that exist (users_private) but have no public students doc yet
+    const orphans: StudentProfile[] = fsPrivateUsers
+      .filter((p) => !known.has(p.uid))
+      .map((p) => ({
+        id: p.uid,
+        name: p.email.split('@')[0] || 'New student',
+        photoUrl: '',
+        role: 'student' as const,
+        approved: false,
+        createdAt: p.createdAt,
+      }));
+    return [...students.filter((s) => !s.approved), ...orphans].sort((a, b) => b.createdAt - a.createdAt);
+  }, [students, fsPrivateUsers]);
 
   const loginWithEmail = useCallback(
     async (emailInput: string, password: string): Promise<{ ok: boolean; error?: string; role?: string }> => {
@@ -490,8 +514,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [navigate]);
 
   const approveStudent = useCallback(async (studentId: string) => {
-    await updateDoc(doc(db, 'students', studentId), { approved: true });
-  }, []);
+    const ref = doc(db, 'students', studentId);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      await updateDoc(ref, { approved: true });
+      return;
+    }
+    const priv = fsPrivateUsers.find((p) => p.uid === studentId);
+    const fallbackName = (priv?.email.split('@')[0] || 'Student').padEnd(2, '_');
+    await setDoc(ref, {
+      id: studentId,
+      name: fallbackName,
+      photoUrl: '',
+      role: 'student',
+      approved: true,
+      createdAt: serverTimestamp(),
+    });
+  }, [fsPrivateUsers]);
 
   const rejectStudent = useCallback(async (studentId: string) => {
     await deleteDoc(doc(db, 'students', studentId));
@@ -586,7 +625,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const targetSeason = selectedSeasonId || seasons.find((s) => s.active)?.id || 'fall-2026';
       const studentLogs = logs.filter((l) => l.studentId === payload.studentId && l.seasonId === targetSeason);
 
-      const eligibility = canClaimAction(payload.actionId, studentLogs, payload.clubName);
+      const eligibility = canClaimAction(
+        payload.actionId,
+        def.frequency === 'weekly_quiz' ? logs.filter((l) => l.studentId === payload.studentId) : studentLogs,
+        payload.clubName
+      );
       if (!eligibility.allowed) {
         return { ok: false, error: eligibility.reason };
       }
@@ -596,16 +639,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if (def.frequency === 'once_per_club') {
         finalNote = payload.clubName?.trim() || finalNote;
-      } else if (def.frequency === 'per_exam') {
-        if (!payload.examId) return { ok: false, error: 'Please select an exam.' };
-        const scoreVal = Number(payload.examScore);
+      } else if (def.frequency === 'weekly_quiz') {
+        const scoreVal = Number(payload.quizScore);
         try {
-          finalPoints = calculateExamPoints(scoreVal);
+          finalPoints = calculateQuizPoints(scoreVal);
         } catch (err) {
-          return { ok: false, error: err instanceof Error ? err.message : 'Invalid exam score.' };
+          return { ok: false, error: err instanceof Error ? err.message : 'Invalid quiz score.' };
         }
-        const exam = exams.find((e) => e.id === payload.examId);
-        finalNote = `${exam?.name || 'Exam'} (${scoreVal}/20)${finalNote ? ` — ${finalNote}` : ''}`;
+        // The score is not stored in the note: it is derived from points (score x 10) and only shown to the student and admin.
       } else if (def.frequency === 'manual') {
         const pts = Number(payload.customPoints);
         if (!Number.isFinite(pts) || pts === 0) {
@@ -629,43 +670,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           note: finalNote,
           createdAt: serverTimestamp(),
         });
-        if (def.frequency === 'per_exam' && payload.examId) {
-          const scoreId = `es_${Date.now()}`;
-          await setDoc(doc(db, 'exam_scores', scoreId), {
-            id: scoreId,
-            studentId: payload.studentId,
-            examId: payload.examId,
-            seasonId: targetSeason,
-            score: Number(payload.examScore),
-            pointsAwarded: finalPoints,
-            createdAt: serverTimestamp(),
-          });
-        }
         return { ok: true };
       } catch (err) {
         return { ok: false, error: err instanceof Error ? err.message : 'Failed to save points.' };
       }
     },
-    [exams, logs, seasons, selectedSeasonId]
+    [logs, seasons, selectedSeasonId]
   );
 
-  const createExam = useCallback(async (name: string, seasonId: string): Promise<{ ok: boolean; error?: string }> => {
-    const trimmed = name.trim();
-    if (trimmed.length < 2) return { ok: false, error: 'Exam name must be at least 2 characters.' };
-    const id = `exam_${Date.now()}`;
+  const getLegacyExamSummary = useCallback(async () => {
+    const [ex, sc] = await Promise.all([getDocs(collection(db, 'exams')), getDocs(collection(db, 'exam_scores'))]);
+    return { logs: legacyExamLogs.length, exams: ex.size, scores: sc.size };
+  }, [legacyExamLogs]);
 
+  const clearLegacyExamData = useCallback(async () => {
     try {
-      await setDoc(doc(db, 'exams', id), {
-        id,
-        name: trimmed,
-        seasonId,
-        createdAt: serverTimestamp(),
-      });
-      return { ok: true };
+      const [ex, sc] = await Promise.all([getDocs(collection(db, 'exams')), getDocs(collection(db, 'exam_scores'))]);
+      const refs = [
+        ...legacyExamLogs.map((l) => doc(db, 'point_logs', l.id)),
+        ...ex.docs.map((d) => d.ref),
+        ...sc.docs.map((d) => d.ref),
+      ];
+      for (let i = 0; i < refs.length; i += 400) {
+        const batch = writeBatch(db);
+        refs.slice(i, i + 400).forEach((r) => batch.delete(r));
+        await batch.commit();
+      }
+      return { ok: true, deleted: { logs: legacyExamLogs.length, exams: ex.size, scores: sc.size } };
     } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : 'Failed to create exam.' };
+      return { ok: false, error: err instanceof Error ? err.message : 'Could not clear old exam data.' };
     }
-  }, []);
+  }, [legacyExamLogs]);
 
   const createAndResetSeason = useCallback(
     async (name: string, startDate: string, endDate: string): Promise<{ ok: boolean; error?: string }> => {
@@ -707,50 +742,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [logs, seasons, students]
   );
 
-  const seedFirestoreCohort = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
-    try {
-      const dataset = createSampleDataset();
-      const batch1 = writeBatch(db);
-      for (const s of dataset.seasons) {
-        batch1.set(doc(db, 'seasons', s.id), { ...s, createdAt: serverTimestamp() });
-      }
-      for (const st of dataset.students) {
-        batch1.set(doc(db, 'students', st.id), { ...st, createdAt: serverTimestamp() });
-      }
-      for (const ex of dataset.exams) {
-        batch1.set(doc(db, 'exams', ex.id), { ...ex, createdAt: serverTimestamp() });
-      }
-      await batch1.commit();
-
-      const batch2 = writeBatch(db);
-      for (const l of dataset.logs) {
-        batch2.set(doc(db, 'point_logs', l.id), { ...l, createdAt: serverTimestamp() });
-      }
-      for (const es of dataset.examScores) {
-        batch2.set(doc(db, 'exam_scores', es.id), { ...es, createdAt: serverTimestamp() });
-      }
-      for (const h of dataset.hallOfFame) {
-        batch2.set(doc(db, 'hall_of_fame', h.id), { ...h, createdAt: serverTimestamp() });
-      }
-      await batch2.commit();
-      return { ok: true };
-    } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : 'Failed to seed Firestore.' };
-    }
-  }, []);
 
   const value: AppContextValue = {
     pathname,
     navigate,
     loading,
+    authReady,
     error,
     clearError: () => setError(null),
     session,
     students,
     logs,
     seasons,
-    exams,
-    examScores,
     hallOfFame,
     selectedSeasonId,
     setSelectedSeasonId,
@@ -765,10 +768,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateStudentProfile,
     updateOwnPhoto,
     deleteStudent,
+    getLegacyExamSummary,
+    clearLegacyExamData,
     awardPoints,
-    createExam,
     createAndResetSeason,
-    seedFirestoreCohort,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

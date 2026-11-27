@@ -12,7 +12,7 @@ export function WhatsAppButton() {
         {/* Tooltip on hover / focus-visible */}
         <div
           role="tooltip"
-          className="pointer-events-none hidden sm:block absolute right-full mr-3 whitespace-nowrap rounded-lg border border-white/10 bg-[#11182E] px-3 py-1.5 text-xs font-medium text-slate-100 shadow-xl opacity-0 translate-x-1 transition-all duration-150 group-hover:opacity-100 group-hover:translate-x-0 group-focus-within:opacity-100 group-focus-within:translate-x-0"
+          className="pointer-events-none hidden sm:block absolute right-full mr-3 whitespace-nowrap rounded-lg border border-(color:--c-ink)/[0.10] bg-(color:--c-surface) px-3 py-1.5 text-xs font-medium text-(color:--c-ink2) shadow-sm opacity-0 translate-x-1 transition-all duration-150 group-hover:opacity-100 group-hover:translate-x-0 group-focus-within:opacity-100 group-focus-within:translate-x-0"
         >
           Send proof of activity to instructor
         </div>

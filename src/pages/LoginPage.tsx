@@ -37,11 +37,11 @@ export function LoginPage() {
       className="flex-1 flex flex-col"
     >
       <main className="flex-1 flex items-center justify-center px-4 py-4">
-        <section className="w-full max-w-[420px] rounded-2xl border border-white/[0.08] bg-[#11182E]/85 backdrop-blur-md p-6 shadow-2xl shadow-black/30 space-y-5">
+        <section className="w-full max-w-[420px] rounded-xl border border-(color:--c-ink)/[0.10] bg-(color:--c-surface) p-6 shadow-sm shadow-sm space-y-5">
           <div className="text-center">
             <h1 className="font-display text-2xl font-bold tracking-tight">
-              <span className="text-white">Welcome </span>
-              <span className="bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA] bg-clip-text text-transparent">
+              <span className="text-(color:--c-ink)">Welcome </span>
+              <span className="text-(color:--c-accent)">
                 back
               </span>
             </h1>
@@ -50,7 +50,7 @@ export function LoginPage() {
           {errorMsg && (
             <div
               role="alert"
-              className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs text-rose-200"
+              className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs text-(color:--c-red)"
             >
               {errorMsg}
             </div>
@@ -58,7 +58,7 @@ export function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-3.5" noValidate>
             <div className="space-y-1">
-              <label htmlFor="login-email" className="block text-xs font-medium text-slate-300">
+              <label htmlFor="login-email" className="block text-xs font-medium text-(color:--c-sub)">
                 Email
               </label>
               <input
@@ -69,12 +69,12 @@ export function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@uca.ac.ma"
-                className="w-full rounded-xl border border-white/10 bg-[#0A0F1E]/80 px-3.5 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                className="w-full rounded-xl border border-(color:--c-ink)/[0.10] bg-(color:--c-surface) px-3.5 py-2.5 text-sm text-(color:--c-ink) placeholder:text-(color:--c-faint) focus:border-(color:--c-accent)/40 focus:outline-none focus:ring-2 focus:ring-(color:--c-accent)/30"
               />
             </div>
 
             <div className="space-y-1">
-              <label htmlFor="login-password" className="block text-xs font-medium text-slate-300">
+              <label htmlFor="login-password" className="block text-xs font-medium text-(color:--c-sub)">
                 Password
               </label>
               <div className="relative">
@@ -86,14 +86,14 @@ export function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
-                  className="w-full rounded-xl border border-white/10 bg-[#0A0F1E]/80 pl-3.5 pr-11 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                  className="w-full rounded-xl border border-(color:--c-ink)/[0.10] bg-(color:--c-surface) pl-3.5 pr-11 py-2.5 text-sm text-(color:--c-ink) placeholder:text-(color:--c-faint) focus:border-(color:--c-accent)/40 focus:outline-none focus:ring-2 focus:ring-(color:--c-accent)/30"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   aria-pressed={showPassword}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-(color:--c-muted) hover:text-(color:--c-ink) focus:outline-none focus-visible:ring-2 focus-visible:ring-(color:--c-accent) cursor-pointer"
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" aria-hidden="true" />
@@ -107,13 +107,13 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full rounded-xl bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-60 transition-colors cursor-pointer"
+              className="w-full rounded-xl bg-(color:--c-accent) px-4 py-2.5 text-sm font-semibold text-white hover:bg-(color:--c-accent-d) disabled:opacity-60 transition-colors cursor-pointer"
             >
               {submitting ? 'Signing In...' : 'Sign In'}
             </button>
           </form>
 
-          <p className="text-center text-xs text-slate-400">
+          <p className="text-center text-xs text-(color:--c-muted)">
             New to the class?{' '}
             <a
               href="/signup"
@@ -121,7 +121,7 @@ export function LoginPage() {
                 e.preventDefault();
                 navigate('/signup');
               }}
-              className="text-indigo-300 hover:text-indigo-200 font-medium underline underline-offset-4"
+              className="text-(color:--c-accent-d) hover:text-(color:--c-accent-d) font-medium underline underline-offset-4"
             >
               Create account
             </a>
